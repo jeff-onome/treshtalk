@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircleIcon } from '../components/icons';
 import PageHeader from '../components/PageHeader';
@@ -16,7 +16,7 @@ const plans: PricingPlan[] = [
   {
     name: 'Starter',
     price: '0',
-    description: 'For individuals and small teams trying out Treshchat.',
+    description: 'For individuals and small teams trying out TreshTalk.',
     features: ['1 agent', '100 chats/month', 'Basic widget customization', 'Community support'],
     isPopular: false,
     ctaText: 'Start for Free',
@@ -83,6 +83,34 @@ const PricingCard: React.FC<{ plan: PricingPlan }> = ({ plan }) => {
 
 
 const PricingPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Pricing Plans - TreshTalk';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', 'Find the perfect TreshTalk plan for your business. Start for free and scale as you grow with our simple, transparent pricing.');
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'TreshTalk pricing, chatbot cost, live chat pricing, business plans');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader 

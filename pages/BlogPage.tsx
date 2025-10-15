@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 
@@ -12,10 +12,38 @@ const BlogPostCard: React.FC<{ title: string; excerpt: string; date: string; aut
 );
 
 const BlogPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Blog - TreshTalk | AI & Customer Support Insights';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', 'Read the TreshTalk blog for the latest insights, tips, and stories on customer communication, AI technology, and chatbot strategies.');
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'customer support blog, AI chatbot articles, customer communication tips, tech blog');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader
-        title="Treshchat Blog"
+        title="TreshTalk Blog"
         subtitle="Insights, tips, and stories on customer communication and AI technology."
         imageUrl="https://picsum.photos/seed/blog/1920/1080"
       />

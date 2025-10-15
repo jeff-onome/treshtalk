@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import PageHeader from '../components/PageHeader';
 
@@ -18,6 +18,34 @@ const JobOpening: React.FC<{ title: string; location: string; department: string
 );
 
 const CareersPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Careers - TreshTalk | Join Our Team';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', "Join the TreshTalk team! We're looking for passionate people to help us build the future of customer communication. View our open positions.");
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'TreshTalk careers, tech jobs, remote jobs, software engineer jobs, marketing jobs');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader

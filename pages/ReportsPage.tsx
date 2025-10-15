@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ChatBubbleIcon, CheckCircleIcon, UserCircleIcon, SmartInvitationsIcon, ThumbsUpIcon } from '../components/icons';
+import { ChatBubbleIcon, CheckCircleIcon, UserCircleIcon, SmartInvitationsIcon, ThumbsUpIcon, CursorArrowRaysIcon } from '../components/icons';
 
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; children?: React.ReactNode }> = ({ title, value, icon, children }) => (
     <div className="bg-white p-6 rounded-lg shadow-md flex flex-col justify-between">
@@ -80,7 +80,7 @@ const ReportsPage: React.FC = () => {
         <div className="space-y-8">
             <h1 className="text-3xl font-bold text-dark">Reports & Analytics</h1>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 <StatCard 
                     title="Total Chats" 
                     value={totalChatsData[timeFilter]} 
@@ -107,6 +107,11 @@ const ReportsPage: React.FC = () => {
                     title="Chat Ratings" 
                     value="93% 👍" 
                     icon={<ThumbsUpIcon className="h-6 w-6" />} 
+                />
+                <StatCard 
+                    title="Engagement Rate" 
+                    value="7.8%" 
+                    icon={<CursorArrowRaysIcon className="h-6 w-6" />} 
                 />
             </div>
             

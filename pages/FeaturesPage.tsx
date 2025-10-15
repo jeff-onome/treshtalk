@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 
 const FeatureItem: React.FC<{ title: string; description: string }> = ({ title, description }) => (
@@ -9,11 +9,39 @@ const FeatureItem: React.FC<{ title: string; description: string }> = ({ title, 
 );
 
 const FeaturesPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Features - TreshTalk | Powerful AI Chatbot Tools';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', "Explore TreshTalk's powerful features like proactive chat, canned responses, advanced customization, and in-depth analytics to grow your business.");
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'AI chatbot features, live chat, customer support tools, proactive chat, canned responses, analytics');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader 
         title="Powerful Features to Grow Your Business"
-        subtitle="Treshchat comes packed with industry-leading features designed to enhance customer engagement and drive sales."
+        subtitle="TreshTalk comes packed with industry-leading features designed to enhance customer engagement and drive sales."
         imageUrl="https://picsum.photos/seed/features/1920/1080"
       />
       <div className="bg-light py-20">

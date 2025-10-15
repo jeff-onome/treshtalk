@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   CheckCircleIcon,
@@ -40,7 +40,35 @@ const TestimonialCard: React.FC<{ quote: string; author: string; role: string; a
 );
 
 const HomePage: React.FC = () => {
-    const powerfulFeatures = [
+    useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'TreshTalk - AI Chatbot for Sales & Support';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', 'TreshTalk is the AI-powered chatbot that engages your website visitors in real-time, boosts sales, and delivers exceptional customer support.');
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'AI chatbot, live chat, customer support, lead generation, sales bot, TreshTalk');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+  
+  const powerfulFeatures = [
     {
       icon: <SmartInvitationsIcon className="h-6 w-6" />,
       title: 'Smart Invitations',
@@ -100,7 +128,7 @@ const HomePage: React.FC = () => {
                 Convert More Visitors with <span className="text-primary">Smarter Conversations</span>
               </h1>
               <p className="mt-6 max-w-xl mx-auto md:mx-0 text-lg md:text-xl text-gray-600">
-                Treshchat is the AI-powered chatbot that engages your website visitors in real-time, boosts sales, and delivers exceptional customer support.
+                TreshTalk is the AI-powered chatbot that engages your website visitors in real-time, boosts sales, and delivers exceptional customer support.
               </p>
               <div className="mt-8 flex justify-center md:justify-start gap-4">
                 <Link to="/register" className="inline-block bg-primary text-white px-8 py-3 rounded-md text-lg font-medium hover:bg-primary-hover transition-colors duration-300 shadow-lg">
@@ -172,7 +200,7 @@ const HomePage: React.FC = () => {
                   <div className="text-center md:text-left">
                       <h2 className="text-3xl font-extrabold text-dark">🌐 Multi-Channel</h2>
                       <p className="mt-4 text-lg text-gray-600">
-                          Connect and Manage All Conversations in One Place. Bring every message together — from live chat, email, Facebook, Telegram, or Viber — and respond to them all directly from Treshchat.
+                          Connect and Manage All Conversations in One Place. Bring every message together — from live chat, email, Facebook, Telegram, or Viber — and respond to them all directly from TreshTalk.
                       </p>
                       <div className="mt-6">
                           <Link to="/features" className="font-semibold text-primary hover:text-primary-hover">
@@ -195,7 +223,7 @@ const HomePage: React.FC = () => {
           </div>
           <div className="mt-16 grid gap-8 lg:grid-cols-2">
             <TestimonialCard 
-              quote="Treshchat transformed our customer support. We've seen a 40% reduction in support tickets and our customers are happier than ever."
+              quote="TreshTalk transformed our customer support. We've seen a 40% reduction in support tickets and our customers are happier than ever."
               author="Sarah Johnson"
               role="CEO, Innovate Co."
               avatarUrl="https://picsum.photos/id/1011/100/100"
@@ -242,7 +270,7 @@ const HomePage: React.FC = () => {
             Ready to Revolutionize Your Customer Service?
           </h2>
           <p className="mt-4 max-w-2xl mx-auto text-lg text-primary-light">
-            Join thousands of businesses already using Treshchat to drive growth.
+            Join thousands of businesses already using TreshTalk to drive growth.
           </p>
           <div className="mt-8">
              <Link to="/register" className="inline-block bg-white text-primary px-8 py-3 rounded-md text-lg font-medium hover:bg-gray-100 transition-colors duration-300 shadow-lg">

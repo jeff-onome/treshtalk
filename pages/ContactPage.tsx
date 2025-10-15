@@ -1,7 +1,35 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 
 const ContactPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Contact Us - TreshTalk';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', "Get in touch with the TreshTalk team. We're here to answer your questions about features, pricing, and getting started.");
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'contact TreshTalk, TreshTalk support, sales inquiry, customer service');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader

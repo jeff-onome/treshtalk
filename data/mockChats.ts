@@ -1,19 +1,21 @@
-
 export interface Message {
-  id: string;
+  id: number;
   text: string;
-  timestamp: string;
   sender: 'user' | 'agent';
+  timestamp: string;
   agentName?: string;
-  agentAvatar?: string;
+  agentAvatarUrl?: string;
+  type?: 'text' | 'payment_request';
 }
 
 export interface Chat {
   id: string;
   customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  avatarUrl: string;
   lastMessage: string;
   timestamp: string;
-  avatarUrl: string;
   status: 'open' | 'closed' | 'pending';
   messages: Message[];
 }
@@ -21,52 +23,65 @@ export interface Chat {
 export const mockChats: Chat[] = [
   {
     id: '1',
-    customerName: 'Alice Johnson',
-    lastMessage: 'Thank you so much, that solved it!',
-    timestamp: '2m ago',
-    avatarUrl: 'https://picsum.photos/id/1011/100/100',
+    customerName: 'Elena Rodriguez',
+    customerEmail: 'elena.r@example.com',
+    customerPhone: '+1 (555) 123-4567',
+    avatarUrl: 'https://picsum.photos/seed/elena/100/100',
+    lastMessage: 'Great, thank you for your help!',
+    timestamp: '10:42 AM',
     status: 'open',
     messages: [
-      { id: 'm1', text: 'Hi, I\'m having trouble with my recent order.', timestamp: '10:30 AM', sender: 'user' },
-      { id: 'm2', text: 'Hello Alice, I can help with that. What is your order number?', timestamp: '10:31 AM', sender: 'agent', agentName: 'Alex' },
-      { id: 'm3', text: 'It\'s #12345.', timestamp: '10:32 AM', sender: 'user' },
-      { id: 'm4', text: 'Thanks. It looks like it was just shipped. Here is the tracking number: XYZ123.', timestamp: '10:34 AM', sender: 'agent', agentName: 'Alex' },
-      { id: 'm5', text: 'Thank you so much, that solved it!', timestamp: '10:35 AM', sender: 'user' },
+      { id: 1, text: 'Hi, I have a question about my recent order.', sender: 'user', timestamp: '10:35 AM', type: 'text' },
+      { id: 2, text: 'Hello Elena, I can certainly help with that. What is your order number?', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:36 AM', type: 'text' },
+      { id: 3, text: 'It\'s #10582. I haven\'t received a shipping confirmation yet.', sender: 'user', timestamp: '10:37 AM', type: 'text' },
+      { id: 4, text: 'Let me check on that for you. One moment...', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:38 AM', type: 'text' },
+      { id: 5, text: 'It looks like your order has just been shipped! You should receive an email with tracking information within the next 15 minutes.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:41 AM', type: 'text' },
+      { id: 6, text: 'Great, thank you for your help!', sender: 'user', timestamp: '10:42 AM', type: 'text' },
     ],
   },
   {
     id: '2',
-    customerName: 'Bob Williams',
-    lastMessage: 'Can you tell me more about the Pro plan features?',
-    timestamp: '15m ago',
-    avatarUrl: 'https://picsum.photos/id/1005/100/100',
-    status: 'open',
+    customerName: 'Ben Carter',
+    customerEmail: 'ben.carter@example.com',
+    customerPhone: '+1 (555) 987-6543',
+    avatarUrl: 'https://picsum.photos/seed/ben/100/100',
+    lastMessage: 'The payment was successful!',
+    timestamp: '9:20 AM',
+    status: 'pending',
     messages: [
-       { id: 'm1', text: 'Can you tell me more about the Pro plan features?', timestamp: '10:15 AM', sender: 'user' },
-    ]
+        { id: 1, text: 'Hi, I\'d like to pay my invoice.', sender: 'user', timestamp: '9:14 AM', type: 'text' },
+        { id: 2, text: 'Of course. I can help with that.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '9:15 AM', type: 'text' },
+        { id: 3, text: 'Please complete your payment for Invoice #INV-045 for $29.99.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '9:16 AM', type: 'payment_request' },
+    ],
   },
   {
     id: '3',
-    customerName: 'Charlie Brown',
-    lastMessage: 'What is your refund policy?',
-    timestamp: '1h ago',
-    avatarUrl: 'https://picsum.photos/id/1025/100/100',
-    status: 'pending',
+    customerName: 'Sophie Chen',
+    customerEmail: 'sophie.c@example.com',
+    customerPhone: '+1 (555) 234-5678',
+    avatarUrl: 'https://picsum.photos/seed/sophie/100/100',
+    lastMessage: 'The issue is resolved. Thanks!',
+    timestamp: 'Yesterday',
+    status: 'closed',
     messages: [
-      { id: 'm1', text: 'What is your refund policy?', timestamp: '9:30 AM', sender: 'user' },
-    ]
+        { id: 1, text: 'My widget isn\'t showing up on my website.', sender: 'user', timestamp: 'Yesterday', type: 'text' },
+        { id: 2, text: 'Hi Sophie, did you remember to add the installation script to your HTML file?', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: 'Yesterday', type: 'text' },
+        { id: 3, text: 'Oh, I think I forgot that step. Let me try now.', sender: 'user', timestamp: 'Yesterday', type: 'text' },
+        { id: 4, text: 'It works! The issue is resolved. Thanks!', sender: 'user', timestamp: 'Yesterday', type: 'text' },
+    ],
   },
   {
     id: '4',
-    customerName: 'Diana Miller',
-    lastMessage: 'Great, thanks for your help!',
+    customerName: 'Marcus Wright',
+    customerEmail: 'marcus.w@example.com',
+    customerPhone: '+1 (555) 876-5432',
+    avatarUrl: 'https://picsum.photos/seed/marcus/100/100',
+    lastMessage: 'Is there an integration with HubSpot?',
     timestamp: 'Yesterday',
-    avatarUrl: 'https://picsum.photos/id/1027/100/100',
     status: 'closed',
     messages: [
-        { id: 'm1', text: 'How do I integrate with Shopify?', timestamp: 'Yesterday', sender: 'user' },
-        { id: 'm2', text: 'Here is our guide on Shopify integration: [link]', timestamp: 'Yesterday', sender: 'agent', agentName: 'Alex' },
-        { id: 'm3', text: 'Great, thanks for your help!', timestamp: 'Yesterday', sender: 'user' },
-    ]
+        { id: 1, text: 'Is there an integration with HubSpot?', sender: 'user', timestamp: 'Yesterday', type: 'text' },
+        { id: 2, text: 'Yes, there is! You can find it under the Integrations tab in your dashboard.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: 'Yesterday', type: 'text' },
+    ],
   },
 ];

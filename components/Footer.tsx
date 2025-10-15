@@ -10,7 +10,7 @@ const Footer: React.FC = () => {
           <div className="col-span-2 lg:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-4">
               <LogoIcon className="h-8 w-auto text-primary" />
-              <span className="text-xl font-bold">Treshchat</span>
+              <span className="text-xl font-bold">TreshTalk</span>
             </Link>
             <p className="text-gray-400 text-sm">
               Engage customers with our AI-powered chatbot solution.
@@ -48,7 +48,7 @@ const Footer: React.FC = () => {
           </div>
         </div>
         <div className="mt-12 border-t border-gray-700 pt-8">
-          <p className="text-base text-gray-400 xl:text-center">&copy; 2024 Treshchat. All rights reserved.</p>
+          <p className="text-base text-gray-400 xl:text-center">&copy; 2024 TreshTalk. All rights reserved.</p>
         </div>
       </div>
     </footer>

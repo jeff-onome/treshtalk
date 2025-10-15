@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 
 const IntegrationCard: React.FC<{ name: string; logoUrl: string }> = ({ name, logoUrl }) => (
@@ -9,11 +9,39 @@ const IntegrationCard: React.FC<{ name: string; logoUrl: string }> = ({ name, lo
 );
 
 const IntegrationsPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = 'Integrations - TreshTalk | Connect Your Tools';
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', 'Connect TreshTalk with your favorite tools like Salesforce, HubSpot, Zendesk, and Slack to supercharge your workflow.');
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'chatbot integrations, Salesforce integration, HubSpot, Zendesk, Slack, CRM integration');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader
-        title="Connect Treshchat with Your Favorite Tools"
-        subtitle="Supercharge your workflow by integrating Treshchat with the services you already use."
+        title="Connect TreshTalk with Your Favorite Tools"
+        subtitle="Supercharge your workflow by integrating TreshTalk with the services you already use."
         imageUrl="https://picsum.photos/seed/integrations/1920/1080"
       />
       <div className="bg-light py-20">

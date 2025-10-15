@@ -71,30 +71,32 @@ const playSound = (soundName: SoundName) => {
 };
 
 const DayRow: React.FC<{ day: string, workingHours: any, handleToggle: any, handleTimeChange: any }> = ({ day, workingHours, handleToggle, handleTimeChange }) => (
-    <div className="flex items-center justify-between py-2 border-b border-gray-100">
-        <span className="text-sm font-medium text-gray-700 w-24">{day}</span>
-        <label htmlFor={`toggle-${day}`} className="flex items-center cursor-pointer">
-            <div className="relative">
-                <input type="checkbox" id={`toggle-${day}`} className="sr-only" checked={workingHours[day].enabled} onChange={() => handleToggle(day)} />
-                <div className={`block w-14 h-8 rounded-full ${workingHours[day].enabled ? 'bg-primary' : 'bg-gray-300'}`}></div>
-                <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${workingHours[day].enabled ? 'transform translate-x-6' : ''}`}></div>
-            </div>
-        </label>
-        <div className={`flex items-center space-x-2 ${!workingHours[day].enabled ? 'opacity-50' : ''}`}>
+    <div className="py-3 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center justify-between w-full sm:w-auto">
+            <span className="text-sm font-medium text-gray-700 w-24">{day}</span>
+            <label htmlFor={`toggle-${day}`} className="flex items-center cursor-pointer">
+                <div className="relative">
+                    <input type="checkbox" id={`toggle-${day}`} className="sr-only" checked={workingHours[day].enabled} onChange={() => handleToggle(day)} />
+                    <div className={`block w-14 h-8 rounded-full ${workingHours[day].enabled ? 'bg-primary' : 'bg-gray-300'}`}></div>
+                    <div className={`dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition-transform ${workingHours[day].enabled ? 'transform translate-x-6' : ''}`}></div>
+                </div>
+            </label>
+        </div>
+        <div className={`flex items-center space-x-2 transition-opacity duration-300 ${!workingHours[day].enabled ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
             <input 
                 type="time" 
                 value={workingHours[day].start}
                 onChange={(e) => handleTimeChange(day, 'start', e.target.value)}
                 disabled={!workingHours[day].enabled}
-                className="w-28 px-2 py-1 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm" 
+                className="w-full sm:w-28 px-2 py-1 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm" 
             />
-            <span>-</span>
+            <span className="text-gray-500">-</span>
             <input 
                 type="time" 
                 value={workingHours[day].end}
                 onChange={(e) => handleTimeChange(day, 'end', e.target.value)}
                 disabled={!workingHours[day].enabled}
-                className="w-28 px-2 py-1 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm" 
+                className="w-full sm:w-28 px-2 py-1 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm" 
             />
         </div>
     </div>
@@ -170,7 +172,7 @@ const SettingsPage: React.FC = () => {
                  <div className="space-y-6">
                     <div className="flex items-center justify-between">
                         <label htmlFor="message-sound" className="text-sm font-medium text-gray-700">Message Sound</label>
-                         <select id="message-sound" value={selectedSound} onChange={handleSoundChange} className="w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm">
+                         <select id="message-sound" value={selectedSound} onChange={handleSoundChange} className="w-full sm:w-1/2 px-3 py-2 border border-gray-300 rounded-md focus:ring-primary focus:border-primary sm:text-sm">
                             {soundOptions.map(sound => <option key={sound} value={sound}>{sound}</option>)}
                         </select>
                     </div>

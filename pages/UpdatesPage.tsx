@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import PageHeader from '../components/PageHeader';
 
 const UpdateItem: React.FC<{ version: string; date: string; title: string; description: string }> = ({ version, date, title, description }) => (
@@ -13,10 +13,38 @@ const UpdateItem: React.FC<{ version: string; date: string; title: string; descr
 );
 
 const UpdatesPage: React.FC = () => {
+  useEffect(() => {
+    const originalTitle = document.title;
+    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+
+    document.title = "Product Updates - TreshTalk | What's New";
+    
+    let metaDescription = document.querySelector('meta[name="description"]');
+    if (!metaDescription) {
+        metaDescription = document.createElement('meta');
+        metaDescription.setAttribute('name', 'description');
+        document.head.appendChild(metaDescription);
+    }
+    metaDescription.setAttribute('content', 'Check out the latest product updates, improvements, and feature releases from the TreshTalk team.');
+
+    let metaKeywords = document.createElement('meta');
+    metaKeywords.setAttribute('name', 'keywords');
+    metaKeywords.setAttribute('content', 'product updates, changelog, new features, TreshTalk updates');
+    document.head.appendChild(metaKeywords);
+    
+    return () => {
+        document.title = originalTitle;
+        if (originalDescription && metaDescription) {
+            metaDescription.setAttribute('content', originalDescription);
+        }
+        document.head.removeChild(metaKeywords);
+    };
+  }, []);
+
   return (
     <>
       <PageHeader
-        title="What's New at Treshchat"
+        title="What's New at TreshTalk"
         subtitle="Check out our latest product updates, improvements, and feature releases."
         imageUrl="https://picsum.photos/seed/updates/1920/1080"
       />
@@ -33,7 +61,7 @@ const UpdatesPage: React.FC = () => {
                   version="v2.4"
                   date="July 18, 2024"
                   title="HubSpot Integration"
-                  description="You can now seamlessly sync your Treshchat leads and conversations with your HubSpot CRM."
+                  description="You can now seamlessly sync your TreshTalk leads and conversations with your HubSpot CRM."
               />
               <UpdateItem 
                   version="v2.3"

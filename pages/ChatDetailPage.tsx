@@ -1,112 +1,182 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { useParams, Link, useNavigate } from 'react-router-dom';
+import { mockChats, Message, Chat } from '../data/mockChats';
+import { SendIcon, PaperclipIcon, ArrowLeftIcon, PhoneIcon, MailIcon, DesktopComputerIcon, CloseIcon } from '../components/icons';
 
+const CoBrowseModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
+    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl h-full max-h-[80vh] flex flex-col">
+            <div className="flex justify-between items-center p-4 border-b">
+                <h3 className="font-bold text-dark">Co-browsing Session</h3>
+                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200">
+                    <CloseIcon className="w-6 h-6" />
+                </button>
+            </div>
+            <div className="flex-1 p-2 bg-gray-200">
+                 <iframe src="https://treshtalk-demo.web.app" className="w-full h-full border-2 border-gray-400 rounded-md" title="Co-browse screen"></iframe>
+            </div>
+             <div className="p-4 border-t bg-gray-50 text-sm text-gray-600">
+                This is a simulated view of the customer's screen.
+            </div>
+        </div>
+    </div>
+);
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { mockChats, Message } from '../data/mockChats';
-import { SendIcon, PaperclipIcon, UserCircleIcon } from '../components/icons';
 
 const ChatDetailPage: React.FC = () => {
     const { chatId } = useParams<{ chatId: string }>();
-    const chat = mockChats.find(c => c.id === chatId);
-
-    const [messages, setMessages] = useState<Message[]>(chat?.messages || []);
+    const navigate = useNavigate();
+    const [chat, setChat] = useState<Chat | undefined>(undefined);
+    const [messages, setMessages] = useState<Message[]>([]);
     const [newMessage, setNewMessage] = useState('');
+    const [isCoBrowsing, setIsCoBrowsing] = useState(false);
     const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-    const scrollToBottom = () => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    };
+    useEffect(() => {
+        const foundChat = mockChats.find(c => c.id === chatId);
+        if (foundChat) {
+            setChat(foundChat);
+            setMessages(foundChat.messages);
+        }
+    }, [chatId]);
 
-    useEffect(scrollToBottom, [messages]);
+    useEffect(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, [messages]);
 
     const handleSendMessage = (e: React.FormEvent) => {
         e.preventDefault();
         if (newMessage.trim() === '') return;
-        const message: Message = {
-            id: `m${Date.now()}`,
+
+        const userMessage: Message = {
+            id: Date.now(),
             text: newMessage,
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             sender: 'agent',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
             agentName: 'Alex',
+            agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100'
         };
-        setMessages(prev => [...prev, message]);
+        setMessages(prev => [...prev, userMessage]);
         setNewMessage('');
     };
 
     if (!chat) {
         return (
-            <div className="text-center p-8">
-                <h2 className="text-2xl font-bold">Chat not found</h2>
-                <Link to="/dashboard/chats" className="text-primary mt-4 inline-block">
-                    &larr; Back to all chats
-                </Link>
+            <div className="flex-1 flex items-center justify-center text-gray-500">
+                <div className="text-center">
+                    <p className="text-xl">Chat not found</p>
+                    <Link to="/dashboard/chats" className="text-primary hover:underline mt-2">
+                        Back to all chats
+                    </Link>
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col h-[calc(100vh-100px)] bg-white rounded-lg shadow">
-            {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between flex-shrink-0">
-                <div>
-                    <h2 className="text-lg font-bold">{chat.customerName}</h2>
-                    <span className="text-sm text-green-500">Online</span>
-                </div>
-                 <Link to="/dashboard/chats" className="text-primary hover:text-primary-hover font-semibold">
-                    &larr; Back to chats
-                </Link>
-            </div>
-
-            {/* Messages */}
-            <div className="flex-grow p-4 overflow-y-auto">
-                <div className="space-y-4">
-                    {messages.map((msg) => (
-                         <div key={msg.id} className={`flex items-end gap-2 ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                            {msg.sender === 'user' && (
-                                <img src={chat.avatarUrl} alt={chat.customerName} className="w-8 h-8 rounded-full flex-shrink-0" />
-                            )}
-                            
-                            <div className={`group flex items-end gap-2 ${msg.sender === 'agent' ? 'flex-row-reverse' : 'flex-row'}`}>
-                                <div className={`max-w-[70%] rounded-xl p-3 shadow-sm ${
-                                    msg.sender === 'agent' 
-                                    ? 'bg-primary-light text-dark rounded-br-none' 
-                                    : 'bg-gray-200 text-dark rounded-bl-none'
-                                }`}>
-                                    <p className="text-sm break-words">{msg.text}</p>
-                                </div>
-                                <p className="text-xs text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex-shrink-0 pb-1">
-                                    {msg.timestamp}
-                                </p>
-                            </div>
-
-                            {msg.sender === 'agent' && (
-                                <UserCircleIcon className="w-8 h-8 text-gray-400 flex-shrink-0" />
-                            )}
+        <>
+            {isCoBrowsing && <CoBrowseModal onClose={() => setIsCoBrowsing(false)} />}
+            <div className="flex h-full bg-white rounded-lg shadow overflow-hidden">
+                {/* Main Chat Area */}
+                <div className="flex-1 flex flex-col">
+                    {/* Header */}
+                    <div className="flex items-center p-4 border-b border-gray-200">
+                        <button onClick={() => navigate('/dashboard/chats')} className="md:hidden mr-4 p-2 rounded-full hover:bg-gray-100">
+                            <ArrowLeftIcon className="w-6 h-6 text-gray-600" />
+                        </button>
+                        <img className="h-10 w-10 rounded-full object-cover" src={chat.avatarUrl} alt={chat.customerName} />
+                        <div className="ml-3">
+                            <h2 className="font-semibold text-dark">{chat.customerName}</h2>
+                            <p className="text-sm text-gray-500">Online</p>
                         </div>
-                    ))}
-                    <div ref={messagesEndRef} />
+                    </div>
+
+                    {/* Messages */}
+                    <div className="flex-1 p-4 overflow-y-auto bg-gray-50">
+                        <div className="space-y-4">
+                            {messages.map(msg => (
+                                <div key={msg.id} className={`flex items-end gap-2 ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                                    {msg.sender === 'user' && (
+                                        <img className="h-8 w-8 rounded-full object-cover self-start" src={chat.avatarUrl} alt={chat.customerName} />
+                                    )}
+                                    <div className="max-w-[70%]">
+                                        {msg.sender === 'agent' && msg.agentName && (
+                                            <p className="text-xs text-gray-500 text-right mb-1 mr-2">{msg.agentName}</p>
+                                        )}
+                                        <div className={`p-3 rounded-xl shadow-sm ${msg.sender === 'agent' ? 'bg-primary text-white rounded-br-none' : 'bg-white text-dark rounded-bl-none'}`}>
+                                            <p className="text-sm">{msg.text}</p>
+                                            <p className={`text-xs mt-1 ${msg.sender === 'agent' ? 'text-blue-100' : 'text-gray-400'}`}>{msg.timestamp}</p>
+                                        </div>
+                                    </div>
+                                    {msg.sender === 'agent' && msg.agentAvatarUrl && (
+                                        <img className="h-8 w-8 rounded-full object-cover self-start" src={msg.agentAvatarUrl} alt={msg.agentName} />
+                                    )}
+                                </div>
+                            ))}
+                            <div ref={messagesEndRef} />
+                        </div>
+                    </div>
+
+                    {/* Input */}
+                    <div className="p-4 border-t border-gray-200 bg-white">
+                        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+                            <button type="button" className="text-gray-500 p-2 rounded-full hover:bg-gray-100 transition-colors">
+                                <PaperclipIcon className="w-6 h-6" />
+                            </button>
+                            <input
+                                type="text"
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                                placeholder="Type a message..."
+                                className="flex-grow border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                            />
+                            <button type="submit" className="bg-primary text-white p-2 rounded-full hover:bg-primary-hover transition-colors">
+                                <SendIcon className="w-6 h-6" />
+                            </button>
+                        </form>
+                    </div>
+                </div>
+
+                {/* Customer Details Sidebar */}
+                <div className="hidden lg:block w-80 border-l border-gray-200 p-6 flex-shrink-0">
+                    <div className="text-center">
+                        <img className="h-24 w-24 rounded-full object-cover mx-auto" src={chat.avatarUrl} alt={chat.customerName} />
+                        <h3 className="mt-4 text-xl font-bold text-dark">{chat.customerName}</h3>
+                        <p className="text-sm text-gray-500">Customer</p>
+                    </div>
+                    <div className="mt-8">
+                         <button onClick={() => setIsCoBrowsing(true)} className="w-full flex items-center justify-center gap-2 bg-gray-100 text-dark font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 transition-colors">
+                            <DesktopComputerIcon className="h-5 w-5" />
+                            Start Co-browsing
+                        </button>
+                    </div>
+                    <div className="mt-6 border-t border-gray-200 pt-6 space-y-4">
+                        <h4 className="font-semibold text-dark">Contact Information</h4>
+                         <div className="flex items-center text-sm">
+                            <MailIcon className="w-5 h-5 text-gray-400 mr-3"/>
+                            <span className="text-gray-700 break-all">{chat.customerEmail}</span>
+                        </div>
+                         <div className="flex items-center text-sm">
+                            <PhoneIcon className="w-5 h-5 text-gray-400 mr-3"/>
+                            <span className="text-gray-700">{chat.customerPhone}</span>
+                        </div>
+                    </div>
+                     <div className="mt-8 border-t border-gray-200 pt-6">
+                        <h4 className="font-semibold text-dark mb-4">Chat Details</h4>
+                        <div className="text-sm space-y-2">
+                             <div className="flex justify-between">
+                                <span className="text-gray-500">Status</span>
+                                <span className="font-medium text-dark capitalize">{chat.status}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-500">Chat ID</span>
+                                <span className="font-medium text-gray-500">#{chat.id}</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-
-            {/* Input */}
-             <div className="p-4 border-t border-gray-200 flex-shrink-0 bg-gray-50">
-                <form onSubmit={handleSendMessage} className="flex items-center space-x-3">
-                    <button type="button" className="text-gray-500 p-2 rounded-full hover:bg-gray-200 transition-colors">
-                        <PaperclipIcon className="w-6 h-6" />
-                    </button>
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        placeholder="Type your message..."
-                        className="flex-grow border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary sm:text-sm"
-                    />
-                    <button type="submit" className="bg-primary text-white p-2.5 rounded-full hover:bg-primary-hover transition-colors flex-shrink-0 disabled:bg-primary-light" disabled={!newMessage.trim()}>
-                        <SendIcon className="w-5 h-5" />
-                    </button>
-                </form>
-            </div>
-        </div>
+        </>
     );
 };
 
