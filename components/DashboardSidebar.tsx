@@ -9,7 +9,7 @@ import {
     QuestionMarkCircleIcon,
     CodeIcon,
     PuzzleIcon
-} from './icons';
+} from './icons.tsx';
 
 interface DashboardSidebarProps {
     isOpen: boolean;
@@ -44,7 +44,8 @@ const SidebarContent: React.FC<{onLinkClick?: () => void}> = ({ onLinkClick }) =
             <div className="flex items-center justify-center h-16 border-b border-gray-700 flex-shrink-0">
                 <Link to="/" className="flex items-center gap-2">
                     <LogoIcon className="h-8 w-auto text-primary" />
-                    <span className="text-xl font-bold">TreshTalk</span>
+                    {/* FIX: Set text to white for contrast */}
+                    <span className="text-xl font-bold text-white">TreshTalk</span>
                 </Link>
             </div>
             <div className="flex-1 flex flex-col overflow-y-auto">

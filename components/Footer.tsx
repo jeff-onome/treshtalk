@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { LogoIcon, TwitterIcon, GitHubIcon, LinkedInIcon } from './icons';
+import { LogoIcon, TwitterIcon, GitHubIcon, LinkedInIcon } from './icons.tsx';
 
 const Footer: React.FC = () => {
   return (

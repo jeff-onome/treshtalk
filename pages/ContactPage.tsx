@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 
 const ContactPage: React.FC = () => {
   useEffect(() => {

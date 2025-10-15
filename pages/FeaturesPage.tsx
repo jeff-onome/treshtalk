@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 
 const FeatureItem: React.FC<{ title: string; description: string }> = ({ title, description }) => (
     <div className="bg-white p-6 rounded-lg shadow-md">

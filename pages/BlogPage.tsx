@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 
 const BlogPostCard: React.FC<{ title: string; excerpt: string; date: string; author: string }> = ({ title, excerpt, date, author }) => (
     <div className="bg-white p-6 rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300">

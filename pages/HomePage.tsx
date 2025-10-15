@@ -11,7 +11,7 @@ import {
   CustomizableWidgetIcon,
   MultilingualSupportIcon,
   PerformanceReportsIcon
-} from '../components/icons';
+} from '../components/icons.tsx';
 
 // Feature Grid Item Component
 const FeatureGridItem: React.FC<{ icon: React.ReactNode; title: string; description: string }> = ({ icon, title, description }) => (

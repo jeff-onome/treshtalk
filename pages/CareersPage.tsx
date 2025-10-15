@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 
 const JobOpening: React.FC<{ title: string; location: string; department: string }> = ({ title, location, department }) => (
     <div className="bg-white p-6 rounded-lg shadow-md flex justify-between items-center">

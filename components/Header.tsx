@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
-import { LogoIcon, MenuIcon, CloseIcon } from './icons';
+import { LogoIcon, MenuIcon, CloseIcon } from './icons.tsx';
 
 const navItems = [
   { to: '/', label: 'Home' },

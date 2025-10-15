@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircleIcon } from '../components/icons';
-import PageHeader from '../components/PageHeader';
+import { CheckCircleIcon } from '../components/icons.tsx';
+import PageHeader from '../components/PageHeader.tsx';
 
 interface PricingPlan {
   name: string;

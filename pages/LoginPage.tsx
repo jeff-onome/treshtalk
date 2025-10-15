@@ -1,14 +1,43 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogoIcon } from '../components/icons';
+import { LogoIcon } from '../components/icons.tsx';
+import { supabase } from '../supabaseClient.tsx';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('user@example.com');
+  const [password, setPassword] = useState('password123');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Simulate a successful login
-    navigate('/dashboard/chats');
+    setLoading(true);
+    setError(null);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: password,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (data.user) {
+        // Simple role-based redirect
+        if (data.user.email === 'superadmin@example.com') {
+          navigate('/superadmin');
+        } else {
+          navigate('/dashboard');
+        }
+      }
+    } catch (error: any) {
+      setError(error.message || 'An unexpected error occurred.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -30,13 +59,26 @@ const LoginPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="mb-6 bg-primary-light border-l-4 border-primary text-primary-dark p-4 rounded-md">
-              <p className="font-bold">Demo Account</p>
-              <p className="text-sm"><strong>Email:</strong> user@example.com</p>
-              <p className="text-sm"><strong>Password:</strong> password123</p>
+          <div className="mb-6 bg-blue-50 border-l-4 border-primary p-4 rounded-r-lg">
+            <h3 className="text-sm font-bold text-primary">Demo Accounts</h3>
+            <div className="mt-2 text-sm text-gray-700 space-y-1">
+              <div>
+                <p><strong>Regular User:</strong></p>
+                <p className="text-xs">Email: <code className="bg-gray-200 p-0.5 rounded">user@example.com</code></p>
+                <p className="text-xs">Password: <code className="bg-gray-200 p-0.5 rounded">password123</code></p>
+              </div>
+              <hr className="my-2 border-gray-200" />
+              <div>
+                <p><strong>Super Admin:</strong></p>
+                <p className="text-xs">Email: <code className="bg-gray-200 p-0.5 rounded">superadmin@example.com</code></p>
+                <p className="text-xs">Password: <code className="bg-gray-200 p-0.5 rounded">superpassword123</code></p>
+              </div>
+            </div>
           </div>
 
-          <form className="space-y-6" onSubmit={handleLogin}>
+          {error && <div className="mb-4 text-center text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
+
+          <form className="space-y-6" onSubmit={handleSubmit}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
@@ -48,7 +90,8 @@ const LoginPage: React.FC = () => {
                   type="email"
                   autoComplete="email"
                   required
-                  defaultValue="user@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
               </div>
@@ -65,7 +108,8 @@ const LoginPage: React.FC = () => {
                   type="password"
                   autoComplete="current-password"
                   required
-                  defaultValue="password123"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-primary focus:border-primary sm:text-sm"
                 />
               </div>
@@ -94,18 +138,19 @@ const LoginPage: React.FC = () => {
             <div>
               <button
                 type="submit"
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary"
+                disabled={loading}
+                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary-hover focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50"
               >
-                Sign in
+                {loading ? 'Signing in...' : 'Sign in'}
               </button>
             </div>
           </form>
            <div className="mt-6 text-center">
-            <div className="text-sm">
-                <Link to="/" className="font-medium text-primary hover:text-primary-hover">
-                  Back to home
-                </Link>
-              </div>
+                <div className="text-sm">
+                    <Link to="/" className="font-medium text-primary hover:text-primary-hover">
+                      Back to home
+                    </Link>
+                </div>
            </div>
         </div>
       </div>

@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import PageHeader from '../components/PageHeader';
+import PageHeader from '../components/PageHeader.tsx';
 
 const IntegrationCard: React.FC<{ name: string; logoUrl: string }> = ({ name, logoUrl }) => (
     <div className="bg-white p-6 rounded-lg shadow-md flex flex-col items-center justify-center aspect-square">

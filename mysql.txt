@@ -1,0 +1,89 @@
+-- NOTE: Supabase uses PostgreSQL, not MySQL. This script is written in PostgreSQL syntax.
+-- You can run this in the Supabase SQL Editor.
+
+-- 1. CREATE WORKSPACES TABLE
+-- Stores information about each client's company/workspace.
+CREATE TABLE workspaces (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
+    company_name TEXT,
+    widget_id TEXT UNIQUE NOT NULL DEFAULT extensions.uuid_generate_v4()::text,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE workspaces ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own workspace." ON workspaces FOR SELECT USING (auth.uid() = owner_id);
+
+-- 2. CREATE PROFILES TABLE
+-- This table stores public user data and syncs with the private `auth.users` table.
+CREATE TABLE profiles (
+    id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name TEXT,
+    role TEXT DEFAULT 'agent' -- e.g., 'agent', 'admin'
+);
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can view their own profile." ON profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can update their own profile." ON profiles FOR UPDATE USING (auth.uid() = id);
+
+-- 3. TRIGGER TO CREATE A PROFILE AND WORKSPACE ON NEW USER SIGNUP
+-- This function is called automatically whenever a new user registers.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+  new_widget_id TEXT;
+BEGIN
+  -- Create a profile for the new user
+  INSERT INTO public.profiles (id, full_name, role)
+  VALUES (new.id, new.raw_user_meta_data->>'full_name', 'admin');
+  
+  -- Create a workspace for the new user
+  INSERT INTO public.workspaces (owner_id, company_name)
+  VALUES (new.id, new.raw_user_meta_data->>'company_name');
+  
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Create the trigger that calls the function
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 4. CREATE CONVERSATIONS TABLE
+CREATE TABLE conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE NOT NULL,
+    visitor_id TEXT NOT NULL, -- A unique identifier for the website visitor
+    status TEXT DEFAULT 'open' CHECK (status IN ('open', 'pending', 'closed')),
+    created_at TIMESTAMPTZ DEFAULT now(),
+    last_message_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Workspace members can access their conversations." ON conversations FOR ALL USING (
+  workspace_id IN (
+    SELECT id FROM workspaces WHERE owner_id = auth.uid()
+  )
+);
+
+-- 5. CREATE MESSAGES TABLE
+CREATE TABLE messages (
+    id BIGSERIAL PRIMARY KEY,
+    conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE NOT NULL,
+    workspace_id UUID REFERENCES workspaces(id) ON DELETE CASCADE NOT NULL,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- NULL if from visitor
+    sender_type TEXT NOT NULL CHECK (sender_type IN ('agent', 'visitor')),
+    content TEXT,
+    image_url TEXT,
+    created_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Workspace members can access their messages." ON messages FOR ALL USING (
+  workspace_id IN (
+    SELECT id FROM workspaces WHERE owner_id = auth.uid()
+  )
+);
+
+
+-- 6. ENABLE REALTIME ON TABLES
+-- This tells Supabase to broadcast changes on these tables.
+ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
+ALTER PUBLICATION supabase_realtime ADD TABLE messages;

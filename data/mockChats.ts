@@ -6,6 +6,7 @@ export interface Message {
   agentName?: string;
   agentAvatarUrl?: string;
   type?: 'text' | 'payment_request';
+  imageUrl?: string;
 }
 
 export interface Chat {
@@ -34,9 +35,10 @@ export const mockChats: Chat[] = [
       { id: 1, text: 'Hi, I have a question about my recent order.', sender: 'user', timestamp: '10:35 AM', type: 'text' },
       { id: 2, text: 'Hello Elena, I can certainly help with that. What is your order number?', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:36 AM', type: 'text' },
       { id: 3, text: 'It\'s #10582. I haven\'t received a shipping confirmation yet.', sender: 'user', timestamp: '10:37 AM', type: 'text' },
-      { id: 4, text: 'Let me check on that for you. One moment...', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:38 AM', type: 'text' },
-      { id: 5, text: 'It looks like your order has just been shipped! You should receive an email with tracking information within the next 15 minutes.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:41 AM', type: 'text' },
-      { id: 6, text: 'Great, thank you for your help!', sender: 'user', timestamp: '10:42 AM', type: 'text' },
+      { id: 4, text: '', sender: 'user', timestamp: '10:38 AM', type: 'text', imageUrl: 'https://picsum.photos/seed/order-screenshot/400/300' },
+      { id: 5, text: 'Thanks for the screenshot. Let me check on that for you. One moment...', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:38 AM', type: 'text' },
+      { id: 6, text: 'It looks like your order has just been shipped! You should receive an email with tracking information within the next 15 minutes.', sender: 'agent', agentName: 'Alex', agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100', timestamp: '10:41 AM', type: 'text' },
+      { id: 7, text: 'Great, thank you for your help!', sender: 'user', timestamp: '10:42 AM', type: 'text' },
     ],
   },
   {
