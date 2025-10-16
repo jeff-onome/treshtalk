@@ -1,132 +1,95 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { CheckCircleIcon } from '../components/icons.tsx';
 import PageHeader from '../components/PageHeader.tsx';
+import { CheckIcon } from '../components/icons.tsx';
+import { supabase } from '../supabaseClient.tsx';
 
-interface PricingPlan {
-  name: string;
-  price: string;
-  description: string;
-  features: string[];
-  isPopular: boolean;
-  ctaText: string;
+interface Plan {
+    id: number;
+    name: string;
+    price_monthly: number;
+    features: string[];
 }
 
-const plans: PricingPlan[] = [
-  {
-    name: 'Starter',
-    price: '0',
-    description: 'For individuals and small teams trying out TreshTalk.',
-    features: ['1 agent', '100 chats/month', 'Basic widget customization', 'Community support'],
-    isPopular: false,
-    ctaText: 'Start for Free',
-  },
-  {
-    name: 'Pro',
-    price: '49',
-    description: 'For growing businesses that need more power and automation.',
-    features: ['Up to 5 agents', 'Unlimited chats', 'Advanced AI features', 'CRM integrations', 'Priority email support'],
-    isPopular: true,
-    ctaText: 'Start Free Trial',
-  },
-  {
-    name: 'Business',
-    price: '99',
-    description: 'For established companies with advanced support needs.',
-    features: ['Unlimited agents', 'Proactive messaging', 'Advanced analytics', 'Dedicated account manager'],
-    isPopular: false,
-    ctaText: 'Start Free Trial',
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    description: 'For large organizations with specific security and support requirements.',
-    features: ['Custom features', 'Single Sign-On (SSO)', 'On-premise deployment', '24/7 premium support'],
-    isPopular: false,
-    ctaText: 'Contact Sales',
-  },
-];
-
-const PricingCard: React.FC<{ plan: PricingPlan }> = ({ plan }) => {
-    const ctaLink = plan.ctaText === 'Contact Sales' ? '/contact' : '/register';
-    return (
-        <div className={`border rounded-xl p-8 flex flex-col ${plan.isPopular ? 'border-primary shadow-2xl relative' : 'border-gray-200 shadow-lg'}`}>
-            {plan.isPopular && <div className="absolute top-0 -translate-y-1/2 bg-primary text-white px-3 py-1 text-sm font-semibold rounded-full">Most Popular</div>}
-            <h3 className="text-2xl font-bold text-dark">{plan.name}</h3>
-            <p className="mt-4 text-gray-500 flex-grow">{plan.description}</p>
-            <div className="mt-6">
-            {plan.price === 'Custom' ? (
-                <p className="text-4xl font-extrabold text-dark">Custom</p>
-            ) : (
-                <p className="text-5xl font-extrabold text-dark">
-                ${plan.price}
-                <span className="text-xl font-medium text-gray-500">/mo</span>
-                </p>
-            )}
-            </div>
-            <ul className="mt-8 space-y-4">
-            {plan.features.map((feature, index) => (
-                <li key={index} className="flex items-start">
-                <CheckCircleIcon className="h-6 w-6 text-secondary mr-3 flex-shrink-0" />
-                <span className="text-gray-600">{feature}</span>
-                </li>
-            ))}
-            </ul>
-            <div className="mt-auto pt-8">
-            <Link to={ctaLink} className={`block w-full text-center rounded-lg px-6 py-3 text-lg font-medium transition-colors duration-300 ${plan.isPopular ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-primary hover:bg-gray-200'}`}>
-                {plan.ctaText}
-            </Link>
-            </div>
-        </div>
-    );
-};
-
-
 const PricingPage: React.FC = () => {
-  useEffect(() => {
-    const originalTitle = document.title;
-    const originalDescription = document.querySelector('meta[name="description"]')?.getAttribute('content');
+    const [plans, setPlans] = useState<Plan[]>([]);
+    const [loading, setLoading] = useState(true);
 
-    document.title = 'Pricing Plans - TreshTalk';
-    
-    let metaDescription = document.querySelector('meta[name="description"]');
-    if (!metaDescription) {
-        metaDescription = document.createElement('meta');
-        metaDescription.setAttribute('name', 'description');
-        document.head.appendChild(metaDescription);
-    }
-    metaDescription.setAttribute('content', 'Find the perfect TreshTalk plan for your business. Start for free and scale as you grow with our simple, transparent pricing.');
-
-    let metaKeywords = document.createElement('meta');
-    metaKeywords.setAttribute('name', 'keywords');
-    metaKeywords.setAttribute('content', 'TreshTalk pricing, chatbot cost, live chat pricing, business plans');
-    document.head.appendChild(metaKeywords);
-    
-    return () => {
-        document.title = originalTitle;
-        if (originalDescription && metaDescription) {
-            metaDescription.setAttribute('content', originalDescription);
-        }
-        document.head.removeChild(metaKeywords);
-    };
-  }, []);
+    useEffect(() => {
+        const fetchPlans = async () => {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('plans')
+                .select('*')
+                .order('price_monthly', { ascending: true });
+            
+            if (error) {
+                console.error("Error fetching plans:", error);
+            } else if (data) {
+                setPlans(data);
+            }
+            setLoading(false);
+        };
+        fetchPlans();
+    }, []);
 
   return (
     <>
-      <PageHeader 
-        title="Find the perfect plan for your business"
-        subtitle="Start for free, and scale as you grow. All plans include a 14-day free trial of our Pro features."
+      <PageHeader
+        title="Simple, transparent pricing"
+        subtitle="Choose the plan that's right for your business. No hidden fees."
         imageUrl="https://picsum.photos/seed/pricing/1920/1080"
       />
-      <div className="bg-white py-20">
+      <div className="bg-light py-20">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid gap-10 lg:grid-cols-2 xl:grid-cols-4">
-              {plans.map(plan => <PricingCard key={plan.name} plan={plan} />)}
-          </div>
+            {loading ? (
+                <div className="text-center text-gray-500">Loading pricing plans...</div>
+            ) : (
+                <div className="grid gap-8 lg:grid-cols-3 max-w-5xl mx-auto">
+                    {plans.map((plan, index) => (
+                         <PricingCard
+                            key={plan.id}
+                            plan={plan.name}
+                            price={plan.price_monthly.toString()}
+                            features={plan.features}
+                            isPopular={index === 1} // Mark the middle plan as popular
+                        />
+                    ))}
+                </div>
+            )}
         </div>
       </div>
     </>
   );
 };
+
+interface PricingCardProps {
+    plan: string;
+    price: string;
+    features: string[];
+    isPopular: boolean;
+}
+
+const PricingCard: React.FC<PricingCardProps> = ({ plan, price, features, isPopular }) => (
+    <div className={`bg-white rounded-lg shadow-lg p-8 flex flex-col ${isPopular ? 'border-2 border-primary' : ''}`}>
+        {isPopular && <span className="bg-primary text-white text-xs font-bold px-3 py-1 rounded-full self-center -mt-12 mb-4">MOST POPULAR</span>}
+        <h3 className="text-2xl font-bold text-dark text-center">{plan}</h3>
+        <div className="my-4 text-center">
+            <span className="text-5xl font-extrabold text-dark">${price}</span>
+            <span className="text-gray-500">/month</span>
+        </div>
+        <ul className="space-y-4 my-8 flex-grow">
+            {features.map((feature, index) => (
+                <li key={index} className="flex items-start">
+                    <CheckIcon className="h-6 w-6 text-green-500 flex-shrink-0 mr-2" />
+                    <span>{feature}</span>
+                </li>
+            ))}
+        </ul>
+        <Link to="/register" className={`w-full text-center block ${isPopular ? 'bg-primary text-white hover:bg-primary-hover' : 'bg-gray-100 text-primary hover:bg-gray-200'} px-6 py-3 rounded-md font-medium transition-colors duration-300`}>
+            Get Started
+        </Link>
+    </div>
+);
 
 export default PricingPage;

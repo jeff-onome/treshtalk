@@ -1,53 +1,58 @@
-import React, { useState } from 'react';
-
-const TabButton: React.FC<{ active: boolean; onClick: () => void; children: React.ReactNode }> = ({ active, onClick, children }) => (
-    <button
-        onClick={onClick}
-        className={`px-4 py-2 text-sm font-medium rounded-md transition-colors ${active ? 'bg-primary text-white' : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
-    >
-        {children}
-    </button>
-);
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient.tsx';
 
 const SuperAdminFinancialsPage: React.FC = () => {
-    const [activeTab, setActiveTab] = useState('Overview');
+    const [invoices, setInvoices] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+
+     useEffect(() => {
+        const fetchFinancials = async () => {
+            setLoading(true);
+            const { data, error } = await supabase.from('invoices').select(`
+                *,
+                workspaces ( company_name )
+            `);
+            if (error) console.error(error);
+            else if (data) setInvoices(data);
+            setLoading(false);
+        };
+        fetchFinancials();
+    }, []);
 
     return (
-        <div className="space-y-6">
+         <div className="space-y-6">
             <h1 className="text-3xl font-bold text-dark dark:text-white">Financials</h1>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
-                <div className="p-4 border-b dark:border-gray-700 flex items-center space-x-2 overflow-x-auto">
-                    <TabButton active={activeTab === 'Overview'} onClick={() => setActiveTab('Overview')}>Overview</TabButton>
-                    <TabButton active={activeTab === 'Invoices'} onClick={() => setActiveTab('Invoices')}>Invoices</TabButton>
-                    <TabButton active={activeTab === 'Transactions'} onClick={() => setActiveTab('Transactions')}>Transactions</TabButton>
-                    <TabButton active={activeTab === 'Promo'} onClick={() => setActiveTab('Promo')}>Promo Codes</TabButton>
-                </div>
-
-                <div className="p-6">
-                    {activeTab === 'Overview' && (
-                        <div>
-                           <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Revenue Overview</h2>
-                           <p className="text-gray-600 dark:text-gray-400">Placeholder for MRR, Churn, and LTV charts and metrics.</p>
-                        </div>
-                    )}
-                    {activeTab === 'Invoices' && (
-                         <div>
-                           <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Invoice Management</h2>
-                           <p className="text-gray-600 dark:text-gray-400">Table of all generated invoices, with options to view, download, or resend.</p>
-                        </div>
-                    )}
-                    {activeTab === 'Transactions' && (
-                         <div>
-                           <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Transaction History</h2>
-                            <p className="text-gray-600 dark:text-gray-400">A detailed log of all payments, refunds, and disputes across the platform.</p>
-                        </div>
-                    )}
-                     {activeTab === 'Promo' && (
-                         <div>
-                           <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Promo Codes & Discounts</h2>
-                           <p className="text-gray-600 dark:text-gray-400">Interface to create and manage promotional codes for marketing campaigns.</p>
-                        </div>
+             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                 <div className="p-4 border-b dark:border-gray-700">
+                     <h2 className="text-xl font-bold">Recent Invoices</h2>
+                 </div>
+                <div className="overflow-x-auto">
+                    {loading ? (
+                         <p className="p-4 text-center text-gray-500">Loading invoices...</p>
+                    ) : (
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
+                                <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Workspace</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Amount</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                                 {invoices.length === 0 && (
+                                     <tr><td colSpan={4} className="text-center p-4 text-gray-500">No invoices found.</td></tr>
+                                 )}
+                                {invoices.map(invoice => (
+                                    <tr key={invoice.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">{invoice.workspaces.company_name}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">${(invoice.amount / 100).toFixed(2)}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap"><span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${invoice.status === 'paid' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>{invoice.status}</span></td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm">{new Date(invoice.created_at).toLocaleDateString()}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
                     )}
                 </div>
             </div>

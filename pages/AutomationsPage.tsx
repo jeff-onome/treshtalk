@@ -1,47 +1,70 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { supabase } from '../supabaseClient.tsx';
 
-const mockAutomations = [
-    { id: 1, title: 'Welcome new visitors', description: 'Send a greeting message to first-time visitors after 15 seconds.', active: true, triggered: 152, conversion: '12%' },
-    { id: 2, title: 'Offer help on pricing page', description: 'If a visitor spends more than 60 seconds on the pricing page, offer assistance.', active: true, triggered: 89, conversion: '18%' },
-    { id: 3, title: 'Abandoned cart reminder', description: 'Engage visitors who have items in their cart but seem inactive.', active: false, triggered: 0, conversion: '0%' },
-];
+interface Automation {
+    id: number;
+    name: string;
+    description: string;
+    is_active: boolean;
+}
 
 const AutomationsPage: React.FC = () => {
+    const { workspaceId } = useAuth();
+    const [automations, setAutomations] = useState<Automation[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchAutomations = async () => {
+            if (!workspaceId) return;
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('automations')
+                .select('*')
+                .eq('workspace_id', workspaceId);
+            
+            if (error) {
+                console.error("Error fetching automations:", error);
+            } else if(data) {
+                setAutomations(data);
+            }
+            setLoading(false);
+        };
+        fetchAutomations();
+    }, [workspaceId]);
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
                 <h1 className="text-3xl font-bold text-dark dark:text-white">Automations</h1>
-                <button className="bg-primary text-white px-4 py-2 rounded-md font-medium hover:bg-primary-hover transition-colors">
+                <button className="bg-primary text-white px-4 py-2 rounded-md font-medium hover:bg-primary-hover">
                     New Automation
                 </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {mockAutomations.map(automation => (
-                    <div key={automation.id} className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 flex flex-col">
-                        <div className="flex justify-between items-start">
-                            <h2 className="text-lg font-bold text-dark dark:text-white flex-1 pr-4">{automation.title}</h2>
-                            <label htmlFor={`toggle-${automation.id}`} className="flex items-center cursor-pointer">
-                                <div className="relative">
-                                    <input type="checkbox" id={`toggle-${automation.id}`} className="sr-only" defaultChecked={automation.active} />
-                                    <div className={`block w-12 h-6 rounded-full ${automation.active ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
-                                    <div className={`dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition-transform ${automation.active ? 'transform translate-x-6' : ''}`}></div>
+             {loading ? (
+                <p className="text-center text-gray-500">Loading automations...</p>
+             ) : automations.length === 0 ? (
+                <div className="text-center p-8 bg-white dark:bg-gray-800 rounded-lg shadow">
+                    <h3 className="text-xl font-semibold">No automations created yet</h3>
+                    <p className="text-gray-500 mt-2">Create your first automation to engage visitors proactively.</p>
+                </div>
+             ) : (
+                <div className="grid gap-6 md:grid-cols-2">
+                    {automations.map(automation => (
+                        <div key={automation.id} className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                            <div className="flex justify-between items-start">
+                                <div>
+                                    <h3 className="text-lg font-bold text-dark dark:text-white">{automation.name}</h3>
+                                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">{automation.description}</p>
                                 </div>
-                            </label>
-                        </div>
-                        <p className="text-gray-600 dark:text-gray-300 text-sm mt-2 flex-grow">{automation.description}</p>
-                        <div className="mt-6 border-t dark:border-gray-700 pt-4 flex justify-between text-sm">
-                            <div className="text-center">
-                                <p className="font-bold text-dark dark:text-white">{automation.triggered}</p>
-                                <p className="text-gray-500 dark:text-gray-400">Triggered</p>
-                            </div>
-                            <div className="text-center">
-                                <p className="font-bold text-dark dark:text-white">{automation.conversion}</p>
-                                <p className="text-gray-500 dark:text-gray-400">Conversion</p>
+                                <div className={`w-12 h-6 flex items-center rounded-full p-1 duration-300 cursor-pointer ${automation.is_active ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}>
+                                    <div className={`bg-white w-4 h-4 rounded-full shadow-md transform duration-300 ${automation.is_active ? 'translate-x-6' : ''}`}></div>
+                                </div>
                             </div>
                         </div>
-                    </div>
-                ))}
-            </div>
+                    ))}
+                </div>
+             )}
         </div>
     );
 };

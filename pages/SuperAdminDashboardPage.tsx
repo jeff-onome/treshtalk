@@ -1,74 +1,53 @@
-import React from 'react';
-import { UsersIcon, BuildingOfficeIcon, CurrencyDollarIcon, ServerIcon } from '../components/icons.tsx';
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient.tsx';
+import { UsersIcon, CurrencyDollarIcon, BuildingOfficeIcon, ChartBarIcon } from '../components/icons.tsx';
 
-const StatCard: React.FC<{ title: string; value: string; change: string; icon: React.ReactNode }> = ({ title, value, change, icon }) => (
-    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-        <div className="flex items-start justify-between">
-            <div>
-                <p className="text-gray-500 dark:text-gray-400 text-sm">{title}</p>
-                <p className="text-3xl font-bold text-dark dark:text-white mt-1">{value}</p>
-                <p className={`text-sm mt-1 ${change.startsWith('+') ? 'text-green-500' : 'text-red-500'}`}>{change} vs last month</p>
-            </div>
-            <div className="bg-primary-light text-primary p-3 rounded-full flex-shrink-0">
+const StatCard: React.FC<{ title: string; value: string | number; icon: React.ReactNode }> = ({ title, value, icon }) => (
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+        <div className="flex items-center">
+            <div className="p-3 rounded-full bg-primary-light text-primary dark:bg-gray-700">
                 {icon}
+            </div>
+            <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase">{title}</p>
+                <p className="text-2xl font-bold text-dark dark:text-white">{value}</p>
             </div>
         </div>
     </div>
 );
 
-const GrowthChart: React.FC = () => {
-    // Dummy data for the chart
-    const data = [45, 59, 80, 81, 56, 55, 40, 65, 59, 80, 81, 90];
-    const maxVal = Math.max(...data);
-    return (
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-            <h2 className="text-xl font-bold text-dark dark:text-white mb-4">New User Growth</h2>
-            <div className="h-64 flex items-end justify-between space-x-2">
-                {data.map((val, i) => (
-                    <div key={i} className="flex-1 flex flex-col items-center">
-                        <div 
-                            className="w-full bg-primary-light rounded-t-md hover:bg-primary transition-colors" 
-                            style={{ height: `${(val / maxVal) * 90}%` }}
-                            title={`${val} new users`}
-                        ></div>
-                        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">{new Date(0, i).toLocaleString('default', { month: 'short' })}</p>
-                    </div>
-                ))}
-            </div>
-        </div>
-    );
-};
-
 const SuperAdminDashboardPage: React.FC = () => {
+    const [stats, setStats] = useState<any>(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            setLoading(true);
+            try {
+                 const { data, error } = await supabase.rpc('get_platform_stats');
+                 if (error) throw error;
+                 setStats(data);
+            } catch (err) {
+                 console.error(err);
+            } finally {
+                setLoading(false);
+            }
+        };
+        fetchStats();
+    }, []);
+
+    if (loading) {
+        return <div className="text-center">Loading platform stats...</div>;
+    }
+
     return (
-        <div className="space-y-8">
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold text-dark dark:text-white">Super Admin Dashboard</h1>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard title="Total Users" value="12,456" change="+5.4%" icon={<UsersIcon className="h-6 w-6" />} />
-                <StatCard title="Active Workspaces" value="1,280" change="+2.1%" icon={<BuildingOfficeIcon className="h-6 w-6" />} />
-                <StatCard title="MRR" value="$85,320" change="+8.2%" icon={<CurrencyDollarIcon className="h-6 w-6" />} />
-                <StatCard title="Platform Health" value="Operational" change="99.9% Uptime" icon={<ServerIcon className="h-6 w-6" />} />
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                <div className="lg:col-span-2">
-                    <GrowthChart />
-                </div>
-                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-bold text-dark dark:text-white mb-4">System Health</h2>
-                    <div className="space-y-4">
-                        <div>
-                            <div className="flex justify-between text-sm mb-1"><span className="text-gray-600 dark:text-gray-300">CPU Load</span><span className="font-semibold text-dark dark:text-white">34%</span></div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-green-500 h-2.5 rounded-full" style={{width: '34%'}}></div></div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-sm mb-1"><span className="text-gray-600 dark:text-gray-300">Memory Usage</span><span className="font-semibold text-dark dark:text-white">68%</span></div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-yellow-500 h-2.5 rounded-full" style={{width: '68%'}}></div></div>
-                        </div>
-                        <div>
-                            <div className="flex justify-between text-sm mb-1"><span className="text-gray-600 dark:text-gray-300">Database Connections</span><span className="font-semibold text-dark dark:text-white">128 / 500</span></div>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5"><div className="bg-blue-500 h-2.5 rounded-full" style={{width: `${(128/500)*100}%`}}></div></div>
-                        </div>
-                    </div>
-                </div>
+                <StatCard title="Total Users" value={stats?.total_users ?? 0} icon={<UsersIcon className="h-6 w-6" />} />
+                <StatCard title="Total Workspaces" value={stats?.total_workspaces ?? 0} icon={<BuildingOfficeIcon className="h-6 w-6" />} />
+                <StatCard title="Monthly Recurring Revenue" value={`$${stats?.mrr ?? 0}`} icon={<CurrencyDollarIcon className="h-6 w-6" />} />
+                <StatCard title="Active Subscriptions" value={stats?.active_subscriptions ?? 0} icon={<ChartBarIcon className="h-6 w-6" />} />
             </div>
         </div>
     );

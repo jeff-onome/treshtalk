@@ -1,4 +1,5 @@
 
+
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MenuIcon, SunIcon, MoonIcon, UserCircleIcon, LogoutIcon } from './icons.tsx';
@@ -9,7 +10,6 @@ interface DashboardHeaderProps {
     onToggleSidebar: () => void;
 }
 
-// FIX: Implemented getTitle function to return a string based on the route.
 const getTitle = (pathname: string): string => {
     const route = pathname.split('/dashboard/')[1]?.split('/')[0] || 'chats';
     switch (route) {
@@ -28,9 +28,17 @@ const getTitle = (pathname: string): string => {
 };
 
 const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) => {
-    const { user } = useAuth();
+    const { user, profile } = useAuth();
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
+    const [isDark, setIsDark] = useState(() => {
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            return true;
+        }
+        document.documentElement.classList.remove('dark');
+        return false;
+    });
+
     const [loggingOut, setLoggingOut] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
@@ -38,13 +46,17 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
 
     const title = getTitle(location.pathname);
 
-    useEffect(() => {
-        // ... (theme effect remains the same)
-    }, [theme]);
-
-    const handleThemeToggle = () => {
-        setTheme(theme === 'dark' ? 'light' : 'dark');
+    const toggleTheme = () => {
+        setIsDark(!isDark);
+        if (!isDark) {
+            localStorage.theme = 'dark';
+            document.documentElement.classList.add('dark');
+        } else {
+            localStorage.theme = 'light';
+            document.documentElement.classList.remove('dark');
+        }
     };
+    
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -58,10 +70,18 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
           setLoggingOut(false);
         }
     };
-
+    
     useEffect(() => {
-        // ... (handleClickOutside effect remains the same)
-    }, [profileRef]);
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setIsProfileOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
+
+    const avatarUrl = profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.full_name || user?.email}&background=random`;
 
     return (
         <header className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -74,14 +94,14 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onToggleSidebar }) =>
                 </div>
 
                 <div className="flex items-center space-x-4">
-                    <button onClick={handleThemeToggle} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                        {theme === 'dark' ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
+                    <button onClick={toggleTheme} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        {isDark ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
                     </button>
                     
                     <div className="relative" ref={profileRef}>
                         <button onClick={() => setIsProfileOpen(!isProfileOpen)} className="flex items-center space-x-2 p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-                           <img className="h-8 w-8 rounded-full" src={`https://i.pravatar.cc/150?u=${user?.id}`} alt="User" />
-                           <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">{user?.email?.split('@')[0]}</span>
+                           <img className="h-8 w-8 rounded-full object-cover" src={avatarUrl} alt="User" />
+                           <span className="hidden sm:inline text-sm font-medium text-gray-700 dark:text-gray-200">{profile?.full_name || user?.email?.split('@')[0]}</span>
                         </button>
 
                         {isProfileOpen && (

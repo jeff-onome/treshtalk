@@ -1,52 +1,71 @@
-import React from 'react';
-
-const mockAnnouncements = [
-    { id: 1, title: 'New Feature: Dark Mode!', content: 'You can now enable dark mode in your dashboard header.', date: '2023-08-01', sentBy: 'Admin' },
-    { id: 2, title: 'Scheduled Maintenance', content: 'We will be performing scheduled maintenance on Sunday at 2 AM UTC.', date: '2023-07-25', sentBy: 'Admin' },
-];
+import React, { useState, useEffect } from 'react';
+import { supabase } from '../supabaseClient.tsx';
 
 const SuperAdminAnnouncementsPage: React.FC = () => {
+    const [announcements, setAnnouncements] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [title, setTitle] = useState('');
+    const [content, setContent] = useState('');
+
+    const fetchAnnouncements = async () => {
+        setLoading(true);
+        const { data, error } = await supabase.from('announcements').select('*').order('created_at', { ascending: false });
+        if (error) console.error(error);
+        else if (data) setAnnouncements(data);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        fetchAnnouncements();
+    }, []);
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        const { error } = await supabase.from('announcements').insert({ title, content });
+        if (error) {
+            alert('Error creating announcement');
+            console.error(error);
+        } else {
+            alert('Announcement published!');
+            setTitle('');
+            setContent('');
+            fetchAnnouncements();
+        }
+    };
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 space-y-6">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                    <h2 className="text-xl font-bold text-dark dark:text-white mb-4">New Announcement</h2>
-                    <form className="space-y-4">
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
-                            <input type="text" className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 dark:text-white" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Content</label>
-                            <textarea rows={5} className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 dark:text-white"></textarea>
-                        </div>
-                        <button type="submit" className="w-full bg-primary text-white px-4 py-2 rounded-md font-medium hover:bg-primary-hover">Send Announcement</button>
-                    </form>
-                </div>
-            </div>
-            <div className="lg:col-span-2 space-y-6">
-                <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
-                    <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Past Announcements</h2>
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                             <thead className="bg-gray-50 dark:bg-gray-700">
-                                <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Title</th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                                {mockAnnouncements.map(ann => (
-                                    <tr key={ann.id}>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-dark dark:text-white">{ann.title}</td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">{ann.date}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+        <div className="space-y-6">
+            <h1 className="text-3xl font-bold text-dark dark:text-white">Platform Announcements</h1>
+             <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+                <h2 className="text-xl font-bold text-dark dark:text-white mb-4">Create New Announcement</h2>
+                <form className="space-y-4" onSubmit={handleSubmit}>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Title</label>
+                        <input type="text" value={title} onChange={e => setTitle(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 dark:text-white" />
                     </div>
-                </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Message</label>
+                        <textarea rows={4} value={content} onChange={e => setContent(e.target.value)} required className="mt-1 block w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm bg-white dark:bg-gray-700 dark:text-white"></textarea>
+                    </div>
+                    <div>
+                        <button type="submit" className="bg-primary text-white px-4 py-2 rounded-md font-medium hover:bg-primary-hover">
+                            Publish Announcement
+                        </button>
+                    </div>
+                </form>
             </div>
+             <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+                 <div className="p-4 border-b dark:border-gray-700"><h2 className="text-xl font-bold">History</h2></div>
+                 <div className="p-4 space-y-4">
+                     {loading ? <p>Loading history...</p> : announcements.map(ann => (
+                        <div key={ann.id} className="border-b dark:border-gray-700 pb-2">
+                             <h3 className="font-bold">{ann.title}</h3>
+                             <p className="text-sm text-gray-600 dark:text-gray-300">{ann.content}</p>
+                             <p className="text-xs text-gray-400 mt-1">{new Date(ann.created_at).toLocaleString()}</p>
+                        </div>
+                     ))}
+                 </div>
+             </div>
         </div>
     );
 };

@@ -1,211 +1,194 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { mockChats, Message, Chat } from '../data/mockChats.ts';
-import { SendIcon, PaperclipIcon, ArrowLeftIcon, PhoneIcon, MailIcon, DesktopComputerIcon, CloseIcon } from '../components/icons.tsx';
+import { useParams, Link } from 'react-router-dom';
+import { supabase } from '../supabaseClient.tsx';
+import { useAuth } from '../contexts/AuthContext.tsx';
+import { ArrowLeftIcon, PaperclipIcon, SendIcon, UserCircleIcon } from '../components/icons.tsx';
 
-const CoBrowseModal: React.FC<{ onClose: () => void }> = ({ onClose }) => (
-    <div className="fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-2xl w-full max-w-4xl h-full max-h-[80vh] flex flex-col">
-            <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                <h3 className="font-bold text-dark dark:text-white">Co-browsing Session</h3>
-                <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                    <CloseIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                </button>
-            </div>
-            <div className="flex-1 p-2 bg-gray-200 dark:bg-gray-900">
-                 <iframe src="https://treshtalk-demo.web.app" className="w-full h-full border-2 border-gray-400 dark:border-gray-600 rounded-md" title="Co-browse screen"></iframe>
-            </div>
-             <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm text-gray-600 dark:text-gray-400">
-                This is a simulated view of the customer's screen.
-            </div>
+interface Message {
+    id: number;
+    content: string | null;
+    image_url: string | null;
+    created_at: string;
+    sender_type: 'agent' | 'visitor' | 'bot';
+    sender_id: string | null;
+}
+
+// Main Component
+const ChatDetailPage: React.FC = () => {
+    const { chatId } = useParams<{ chatId: string }>();
+    const { user, workspaceId, profile } = useAuth();
+    const [messages, setMessages] = useState<Message[]>([]);
+    const [newMessage, setNewMessage] = useState('');
+    const [conversation, setConversation] = useState<any>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const [uploading, setUploading] = useState(false);
+    
+    // Fetch initial data
+    useEffect(() => {
+        if (!chatId) return;
+
+        const fetchConversation = async () => {
+            const { data } = await supabase.from('conversations').select('*').eq('id', chatId).single();
+            setConversation(data);
+        };
+
+        const fetchMessages = async () => {
+            const { data } = await supabase.from('messages').select('*').eq('conversation_id', chatId).order('created_at');
+            setMessages(data || []);
+        };
+
+        fetchConversation();
+        fetchMessages();
+    }, [chatId]);
+
+    // Real-time subscription
+    useEffect(() => {
+        if (!chatId) return;
+        const channel = supabase
+            .channel(`public:messages:conversation_id=eq.${chatId}`)
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'messages', filter: `conversation_id=eq.${chatId}` },
+                (payload) => {
+                     // Check if message is not from the current agent to prevent duplicates
+                    if (payload.new.sender_id !== user?.id) {
+                         setMessages(current => [...current, payload.new as Message]);
+                    }
+                }
+            )
+            .subscribe();
+
+        return () => { supabase.removeChannel(channel); };
+    }, [chatId, user]);
+
+    const handleSendMessage = async (content?: string, imageUrl?: string) => {
+        const text = content || newMessage;
+        if ((!text.trim() && !imageUrl) || !chatId || !workspaceId || !user) return;
+    
+        const payload: any = {
+            conversation_id: chatId,
+            workspace_id: workspaceId,
+            sender_id: user.id,
+            sender_type: 'agent',
+            content: text.trim() ? text.trim() : null,
+            image_url: imageUrl || null
+        };
+        
+        const { data, error } = await supabase.from('messages').insert(payload).select().single();
+
+        if (error) {
+            console.error("Error sending message:", error);
+        } else if (data) {
+            setMessages(current => [...current, data]);
+            setNewMessage('');
+        }
+    };
+    
+    const handleImageUpload = async (file: File) => {
+        if (!chatId || !user) return;
+        setUploading(true);
+        const filePath = `public/${user.id}/${Date.now()}_${file.name}`;
+        const { error: uploadError } = await supabase.storage.from('images').upload(filePath, file);
+
+        if (uploadError) {
+            console.error('Error uploading image:', uploadError);
+            setUploading(false);
+            return;
+        }
+
+        const { data: urlData } = supabase.storage.from('images').getPublicUrl(filePath);
+        await handleSendMessage(undefined, urlData.publicUrl);
+        setUploading(false);
+    };
+
+    return (
+        <div className="flex flex-col h-full bg-white dark:bg-gray-800 rounded-lg shadow">
+            <Header visitorId={conversation?.visitor_id} />
+            <Messages messages={messages} agentAvatar={profile?.avatar_url} />
+            <Footer 
+                newMessage={newMessage}
+                setNewMessage={setNewMessage}
+                onSendMessage={() => handleSendMessage()}
+                fileInputRef={fileInputRef}
+                onImageSelect={(e) => {
+                    if (e.target.files?.[0]) handleImageUpload(e.target.files[0]);
+                }}
+                uploading={uploading}
+            />
+        </div>
+    );
+};
+
+
+const Header: React.FC<{ visitorId: string | undefined }> = ({ visitorId }) => (
+    <div className="flex-shrink-0 flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <Link to="/dashboard/chats" className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 mr-2">
+            <ArrowLeftIcon className="h-6 w-6 text-gray-600 dark:text-gray-300" />
+        </Link>
+        <div>
+            <h2 className="font-bold text-lg text-dark dark:text-white">Conversation</h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400">with Visitor #{visitorId?.substring(0, 8)}</p>
         </div>
     </div>
 );
 
-
-const ChatDetailPage: React.FC = () => {
-    const { chatId } = useParams<{ chatId: string }>();
-    const navigate = useNavigate();
-    const [chat, setChat] = useState<Chat | undefined>(undefined);
-    const [messages, setMessages] = useState<Message[]>([]);
-    const [newMessage, setNewMessage] = useState('');
-    const [isCoBrowsing, setIsCoBrowsing] = useState(false);
-    const messagesEndRef = useRef<null | HTMLDivElement>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-
-    useEffect(() => {
-        const foundChat = mockChats.find(c => c.id === chatId);
-        if (foundChat) {
-            setChat(foundChat);
-            setMessages(foundChat.messages);
-        }
-    }, [chatId]);
-
+const Messages: React.FC<{ messages: Message[], agentAvatar: string | undefined | null }> = ({ messages, agentAvatar }) => {
+     const messagesEndRef = useRef<null | HTMLDivElement>(null);
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
 
-    const handleSendMessage = (e?: React.FormEvent) => {
-        e?.preventDefault();
-        if (newMessage.trim() === '') return;
-
-        const agentMessage: Message = {
-            id: Date.now(),
-            text: newMessage,
-            sender: 'agent',
-            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            agentName: 'Alex',
-            agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100'
-        };
-        setMessages(prev => [...prev, agentMessage]);
-        setNewMessage('');
-    };
-    
-    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const imageUrl = e.target?.result as string;
-                const newMessage: Message = {
-                    id: Date.now(),
-                    text: '',
-                    sender: 'agent',
-                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                    agentName: 'Alex',
-                    agentAvatarUrl: 'https://picsum.photos/seed/alex/100/100',
-                    imageUrl,
-                };
-                setMessages(prev => [...prev, newMessage]);
-            };
-            reader.readAsDataURL(file);
-        }
-    };
-
-
-    if (!chat) {
-        return (
-            <div className="flex-1 flex items-center justify-center text-gray-500 dark:text-gray-400">
-                <div className="text-center">
-                    <p className="text-xl">Chat not found</p>
-                    <Link to="/dashboard/chats" className="text-primary hover:underline mt-2">
-                        Back to all chats
-                    </Link>
-                </div>
-            </div>
-        );
-    }
-
     return (
-        <>
-            {isCoBrowsing && <CoBrowseModal onClose={() => setIsCoBrowsing(false)} />}
-            <div className="flex h-full bg-white dark:bg-gray-800 rounded-lg shadow overflow-hidden">
-                {/* Main Chat Area */}
-                <div className="flex-1 flex flex-col">
-                    {/* Header */}
-                    <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                        <button onClick={() => navigate('/dashboard/chats')} className="md:hidden mr-4 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700">
-                            <ArrowLeftIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
-                        </button>
-                        <img className="h-10 w-10 rounded-full object-cover" src={chat.avatarUrl} alt={chat.customerName} />
-                        <div className="ml-3">
-                            <h2 className="font-semibold text-dark dark:text-white">{chat.customerName}</h2>
-                            <p className="text-sm text-gray-500 dark:text-gray-400">Online</p>
+        <div className="flex-1 p-4 overflow-y-auto space-y-4">
+            {messages.map((msg) => (
+                 <div key={msg.id} className={`group flex items-start gap-3 ${msg.sender_type === 'agent' ? 'justify-end' : 'justify-start'}`}>
+                     {msg.sender_type !== 'agent' && <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center flex-shrink-0"><UserCircleIcon className="h-6 w-6 text-white"/></div>}
+                     <div className="flex flex-col items-start max-w-lg">
+                        <div className={`px-4 py-2 rounded-2xl ${msg.sender_type === 'agent' ? 'bg-primary text-white rounded-br-none self-end' : 'bg-gray-100 dark:bg-gray-700 text-dark dark:text-white rounded-bl-none'}`}>
+                            {msg.image_url && <img src={msg.image_url} alt="Shared content" className="rounded-lg max-w-xs mb-2 cursor-pointer" onClick={()=> window.open(msg.image_url, '_blank')} />}
+                            {msg.content && <p className="text-sm">{msg.content}</p>}
                         </div>
+                        <p className="text-xs text-gray-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            {new Date(msg.created_at).toLocaleTimeString()}
+                        </p>
                     </div>
-
-                    {/* Messages */}
-                    <div className="flex-1 p-4 overflow-y-auto bg-gray-50 dark:bg-gray-900">
-                        <div className="space-y-4">
-                            {messages.map(msg => (
-                                <div key={msg.id} className={`flex items-end gap-2 ${msg.sender === 'agent' ? 'justify-end' : 'justify-start'}`}>
-                                    {msg.sender === 'user' && (
-                                        <img className="h-8 w-8 rounded-full object-cover self-start" src={chat.avatarUrl} alt={chat.customerName} />
-                                    )}
-                                    <div className="max-w-[70%]">
-                                        {msg.sender === 'agent' && msg.agentName && (
-                                            <p className="text-xs text-gray-500 dark:text-gray-400 text-right mb-1 mr-2">{msg.agentName}</p>
-                                        )}
-                                        <div className={`p-1 rounded-xl shadow-sm ${msg.sender === 'agent' ? 'bg-primary text-white rounded-br-none' : 'bg-white dark:bg-gray-700 text-dark dark:text-white rounded-bl-none'}`}>
-                                             {msg.imageUrl ? (
-                                                <img src={msg.imageUrl} alt="Chat attachment" className="rounded-lg max-w-xs h-auto block" />
-                                            ) : (
-                                                <p className="text-sm px-2 py-1">{msg.text}</p>
-                                            )}
-                                            <p className={`text-xs mt-1 px-2 ${msg.sender === 'agent' ? 'text-blue-100' : 'text-gray-400 dark:text-gray-300'}`}>{msg.timestamp}</p>
-                                        </div>
-                                    </div>
-                                    {msg.sender === 'agent' && msg.agentAvatarUrl && (
-                                        <img className="h-8 w-8 rounded-full object-cover self-start" src={msg.agentAvatarUrl} alt={msg.agentName} />
-                                    )}
-                                </div>
-                            ))}
-                            <div ref={messagesEndRef} />
-                        </div>
-                    </div>
-
-                    {/* Input */}
-                    <div className="p-4 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-                        <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                             <input type="file" ref={fileInputRef} onChange={handleFileSelect} accept="image/*" className="hidden" />
-                            <button type="button" onClick={() => fileInputRef.current?.click()} className="text-gray-500 dark:text-gray-400 p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                                <PaperclipIcon className="w-6 h-6" />
-                            </button>
-                            <input
-                                type="text"
-                                value={newMessage}
-                                onChange={(e) => setNewMessage(e.target.value)}
-                                placeholder="Type a message..."
-                                className="flex-grow border border-gray-300 dark:border-gray-600 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-primary text-sm bg-white dark:bg-gray-700 dark:text-white"
-                            />
-                            <button type="submit" className="bg-primary text-white p-2 rounded-full hover:bg-primary-hover transition-colors">
-                                <SendIcon className="w-6 h-6" />
-                            </button>
-                        </form>
-                    </div>
+                     {msg.sender_type === 'agent' && (
+                        <img src={agentAvatar || `https://i.pravatar.cc/150?u=${msg.sender_id}`} className="h-8 w-8 rounded-full bg-primary flex items-center justify-center flex-shrink-0 object-cover" alt="Agent"/>
+                     )}
                 </div>
-
-                {/* Customer Details Sidebar */}
-                <div className="hidden lg:block w-80 border-l border-gray-200 dark:border-gray-700 p-6 flex-shrink-0">
-                    <div className="text-center">
-                        <img className="h-24 w-24 rounded-full object-cover mx-auto" src={chat.avatarUrl} alt={chat.customerName} />
-                        <h3 className="mt-4 text-xl font-bold text-dark dark:text-white">{chat.customerName}</h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">Customer</p>
-                    </div>
-                    <div className="mt-8">
-                         <button onClick={() => setIsCoBrowsing(true)} className="w-full flex items-center justify-center gap-2 bg-gray-100 dark:bg-gray-700 text-dark dark:text-white font-semibold py-2 px-4 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
-                            <DesktopComputerIcon className="h-5 w-5" />
-                            Start Co-browsing
-                        </button>
-                    </div>
-                    <div className="mt-6 border-t border-gray-200 dark:border-gray-700 pt-6 space-y-4">
-                        <h4 className="font-semibold text-dark dark:text-white">Contact Information</h4>
-                         <div className="flex items-center text-sm">
-                            <MailIcon className="w-5 h-5 text-gray-400 mr-3"/>
-                            <span className="text-gray-700 dark:text-gray-300 break-all">{chat.customerEmail}</span>
-                        </div>
-                         <div className="flex items-center text-sm">
-                            <PhoneIcon className="w-5 h-5 text-gray-400 mr-3"/>
-                            <span className="text-gray-700 dark:text-gray-300">{chat.customerPhone}</span>
-                        </div>
-                    </div>
-                     <div className="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
-                        <h4 className="font-semibold text-dark dark:text-white mb-4">Chat Details</h4>
-                        <div className="text-sm space-y-2">
-                             <div className="flex justify-between">
-                                <span className="text-gray-500 dark:text-gray-400">Status</span>
-                                <span className="font-medium text-dark dark:text-white capitalize">{chat.status}</span>
-                            </div>
-                            <div className="flex justify-between">
-                                <span className="text-gray-500 dark:text-gray-400">Chat ID</span>
-                                <span className="font-medium text-gray-500 dark:text-gray-400">#{chat.id}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </>
+            ))}
+             <div ref={messagesEndRef} />
+        </div>
     );
 };
+
+const Footer: React.FC<{
+    newMessage: string;
+    setNewMessage: (msg: string) => void;
+    onSendMessage: () => void;
+    fileInputRef: React.RefObject<HTMLInputElement>;
+    onImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
+    uploading: boolean;
+}> = ({ newMessage, setNewMessage, onSendMessage, fileInputRef, onImageSelect, uploading }) => (
+    <div className="flex-shrink-0 border-t dark:border-gray-700 p-4">
+        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-2">
+            <input
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), onSendMessage())}
+                placeholder="Type your message..."
+                className="flex-1 bg-transparent focus:ring-0 border-0 text-dark dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+            />
+            <input type="file" ref={fileInputRef} onChange={onImageSelect} className="hidden" accept="image/*" />
+            <button onClick={() => fileInputRef.current?.click()} disabled={uploading} className="p-2 text-gray-500 hover:text-primary dark:text-gray-400 dark:hover:text-primary-light rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50">
+                {uploading ? <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary"></div> : <PaperclipIcon className="h-6 w-6" />}
+            </button>
+            <button onClick={onSendMessage} className="bg-primary text-white h-10 w-10 flex items-center justify-center rounded-lg flex-shrink-0 hover:bg-primary-hover">
+                <SendIcon className="h-5 w-5" />
+            </button>
+        </div>
+    </div>
+);
 
 export default ChatDetailPage;

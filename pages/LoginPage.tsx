@@ -5,36 +5,28 @@ import { supabase } from '../supabaseClient.tsx';
 
 const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const [email, setEmail] = useState('user@example.com');
-  const [password, setPassword] = useState('password123');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError(null);
-
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: email,
-        password: password,
-      });
-
-      if (error) {
-        throw error;
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      
+      // Simple role-based redirect
+      if (data.user?.email === 'superadmin@example.com') {
+        navigate('/superadmin');
+      } else {
+        navigate('/dashboard');
       }
 
-      if (data.user) {
-        // Simple role-based redirect
-        if (data.user.email === 'superadmin@example.com') {
-          navigate('/superadmin');
-        } else {
-          navigate('/dashboard');
-        }
-      }
-    } catch (error: any) {
-      setError(error.message || 'An unexpected error occurred.');
+    } catch (err: any) {
+      setError(err.message || 'An unexpected error occurred.');
     } finally {
       setLoading(false);
     }
@@ -59,26 +51,8 @@ const LoginPage: React.FC = () => {
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
         <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
-          <div className="mb-6 bg-blue-50 border-l-4 border-primary p-4 rounded-r-lg">
-            <h3 className="text-sm font-bold text-primary">Demo Accounts</h3>
-            <div className="mt-2 text-sm text-gray-700 space-y-1">
-              <div>
-                <p><strong>Regular User:</strong></p>
-                <p className="text-xs">Email: <code className="bg-gray-200 p-0.5 rounded">user@example.com</code></p>
-                <p className="text-xs">Password: <code className="bg-gray-200 p-0.5 rounded">password123</code></p>
-              </div>
-              <hr className="my-2 border-gray-200" />
-              <div>
-                <p><strong>Super Admin:</strong></p>
-                <p className="text-xs">Email: <code className="bg-gray-200 p-0.5 rounded">superadmin@example.com</code></p>
-                <p className="text-xs">Password: <code className="bg-gray-200 p-0.5 rounded">superpassword123</code></p>
-              </div>
-            </div>
-          </div>
-
           {error && <div className="mb-4 text-center text-sm text-red-600 bg-red-50 p-3 rounded-md">{error}</div>}
-
-          <form className="space-y-6" onSubmit={handleSubmit}>
+          <form className="space-y-6" onSubmit={handleLogin}>
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                 Email address
@@ -145,13 +119,6 @@ const LoginPage: React.FC = () => {
               </button>
             </div>
           </form>
-           <div className="mt-6 text-center">
-                <div className="text-sm">
-                    <Link to="/" className="font-medium text-primary hover:text-primary-hover">
-                      Back to home
-                    </Link>
-                </div>
-           </div>
         </div>
       </div>
     </div>
