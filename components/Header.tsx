@@ -17,8 +17,7 @@ const Header: React.FC = () => {
     const navLinks = [
         { name: 'Pricing', href: '/pricing' },
         { name: 'Features', href: '/features' },
-        { name: 'Integrations', href: '/integrations' },
-        { name: 'Blog', href: '/blog' },
+        { name: 'About', href: '/about' },
         { name: 'Contact', href: '/contact' },
     ];
 
@@ -38,7 +37,7 @@ const Header: React.FC = () => {
             <nav className="container mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="flex items-center justify-between h-20">
                     <div className="flex-shrink-0">
-                        <Link to="/" className="flex items-center gap-2">
+                        <Link to="/" className="flex items-center gap-2" onClick={() => setIsMenuOpen(false)}>
                             <LogoIcon className="h-8 w-auto text-primary" />
                             <span className="text-xl font-bold text-dark">TreshTalk</span>
                         </Link>

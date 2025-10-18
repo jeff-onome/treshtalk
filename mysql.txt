@@ -1,391 +1,503 @@
--- This script is idempotent, meaning it can be run multiple times without causing errors.
+-- This script is designed to be idempotent (runnable multiple times without errors)
+-- and sets up the complete database schema for the TreshTalk application.
 
--- ----------------------------------------------------------------
--- 1. SETUP EXTENSIONS (if not already enabled)
--- ----------------------------------------------------------------
+-- 
+-- IMPORTANT: EMAIL VERIFICATION SETUP
+-- For the registration flow to work, you MUST enable email confirmations in your Supabase project.
+-- Go to: Authentication -> Providers -> Email -> Enable "Email confirmations".
+-- Also, configure your email provider settings in: Authentication -> SMTP Settings.
+-- 
+
+-- 1. Enable UUID extension if not enabled
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- ----------------------------------------------------------------
--- 2. CREATE TABLES (IF THEY DON'T EXIST)
--- ----------------------------------------------------------------
+-- =============================================
+-- SECTION 1: TABLE CREATION
+-- =============================================
 
--- Profiles table to store user-specific data
+-- PROFILES TABLE
+-- Stores public user data.
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  full_name TEXT,
-  avatar_url TEXT,
-  role TEXT DEFAULT 'user', -- 'user' or 'superadmin'
-  country TEXT
+    id UUID PRIMARY KEY NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    full_name TEXT,
+    email TEXT,
+    avatar_url TEXT,
+    country TEXT
 );
-COMMENT ON TABLE public.profiles IS 'Stores public profile information for each user.';
+COMMENT ON TABLE public.profiles IS 'Stores public-facing profile information for each user.';
 
--- Workspaces table to group resources for a client
+-- PLANS TABLE
+-- Stores subscription plan details.
+CREATE TABLE IF NOT EXISTS public.plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name TEXT NOT NULL UNIQUE,
+    price_monthly INT NOT NULL,
+    features TEXT[]
+);
+COMMENT ON TABLE public.plans IS 'Defines the available subscription plans and their features.';
+
+-- FEATURES TABLE
+-- Defines all available features that can be toggled per plan.
+CREATE TABLE IF NOT EXISTS public.features (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key TEXT NOT NULL UNIQUE,
+    name TEXT NOT NULL,
+    description TEXT
+);
+COMMENT ON TABLE public.features IS 'Lists all toggleable features in the system.';
+
+-- PLAN_FEATURES TABLE (Join Table)
+-- Links features to specific plans.
+CREATE TABLE IF NOT EXISTS public.plan_features (
+    plan_id UUID NOT NULL REFERENCES public.plans(id) ON DELETE CASCADE,
+    feature_id UUID NOT NULL REFERENCES public.features(id) ON DELETE CASCADE,
+    PRIMARY KEY (plan_id, feature_id)
+);
+COMMENT ON TABLE public.plan_features IS 'Associates features with subscription plans.';
+
+-- WORKSPACES TABLE
+-- Stores information about a user's company or workspace.
 CREATE TABLE IF NOT EXISTS public.workspaces (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  owner_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-  company_name TEXT,
-  widget_id TEXT UNIQUE NOT NULL DEFAULT uuid_generate_v4()::text,
-  industry TEXT,
-  company_size TEXT,
-  user_role TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    owner_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    company_name TEXT,
+    widget_id TEXT UNIQUE NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    industry TEXT,
+    company_size TEXT,
+    user_role TEXT,
+    plan_id UUID REFERENCES public.plans(id)
 );
-COMMENT ON TABLE public.workspaces IS 'Each workspace is a separate environment for a client company.';
+COMMENT ON TABLE public.workspaces IS 'Represents a single client account or company.';
 
--- Conversations table to store chat sessions
-CREATE TABLE IF NOT EXISTS public.conversations (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-  visitor_id TEXT NOT NULL,
-  visitor_email TEXT,
-  status TEXT DEFAULT 'open', -- 'open', 'pending', 'closed'
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-COMMENT ON TABLE public.conversations IS 'Stores individual chat conversations.';
-
--- Messages table to store individual messages
-CREATE TABLE IF NOT EXISTS public.messages (
-  id BIGSERIAL PRIMARY KEY,
-  conversation_id UUID REFERENCES public.conversations(id) ON DELETE CASCADE,
-  workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-  sender_id TEXT, -- Can be profile ID for agents or visitor_id for visitors
-  sender_type TEXT NOT NULL, -- 'agent', 'visitor', 'bot'
-  content TEXT,
-  image_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
-COMMENT ON TABLE public.messages IS 'Stores messages for each conversation.';
-
--- Workspace users join table for team management
+-- WORKSPACE_USERS TABLE (Join Table)
+-- Links multiple users to a single workspace for team features.
 CREATE TABLE IF NOT EXISTS public.workspace_users (
-    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE,
-    role TEXT NOT NULL DEFAULT 'agent', -- e.g., 'admin', 'agent'
+    workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    role TEXT NOT NULL DEFAULT 'agent', -- e.g., 'owner', 'admin', 'agent'
     PRIMARY KEY (workspace_id, user_id)
 );
 COMMENT ON TABLE public.workspace_users IS 'Manages team members within a workspace.';
 
--- Plans table for pricing tiers
-CREATE TABLE IF NOT EXISTS public.plans (
-    id SERIAL PRIMARY KEY,
-    name TEXT NOT NULL,
-    price_monthly INT NOT NULL,
-    features TEXT[]
-);
-COMMENT ON TABLE public.plans IS 'Stores different subscription plans.';
-
--- Blog posts table
-CREATE TABLE IF NOT EXISTS public.blog_posts (
-    id SERIAL PRIMARY KEY,
-    slug TEXT UNIQUE NOT NULL,
-    title TEXT NOT NULL,
-    excerpt TEXT,
-    author TEXT,
-    published_at DATE,
-    image_url TEXT
-);
-COMMENT ON TABLE public.blog_posts IS 'Stores articles for the public blog.';
-
--- Automations table
-CREATE TABLE IF NOT EXISTS public.automations (
-    id SERIAL PRIMARY KEY,
-    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    name TEXT NOT NULL,
-    description TEXT,
-    is_active BOOLEAN DEFAULT true
-);
-COMMENT ON TABLE public.automations IS 'Stores automation rules for workspaces.';
-
--- Knowledge Base articles table
-CREATE TABLE IF NOT EXISTS public.kb_articles (
-    id SERIAL PRIMARY KEY,
-    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    title TEXT NOT NULL,
-    content TEXT,
-    category TEXT,
-    status TEXT DEFAULT 'published',
-    last_updated_at TIMESTAMPTZ DEFAULT now()
-);
-COMMENT ON TABLE public.kb_articles IS 'Stores help articles for the knowledge base.';
-
--- Invoices table for financials
-CREATE TABLE IF NOT EXISTS public.invoices (
-    id SERIAL PRIMARY KEY,
-    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    amount INT NOT NULL,
-    status TEXT NOT NULL, -- 'paid', 'pending', 'overdue'
-    due_date DATE,
+-- CONVERSATIONS TABLE
+-- Stores chat conversations.
+CREATE TABLE IF NOT EXISTS public.conversations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    visitor_id TEXT NOT NULL,
+    visitor_email TEXT,
+    status TEXT DEFAULT 'open', -- 'open', 'pending', 'closed'
     created_at TIMESTAMPTZ DEFAULT now()
 );
-COMMENT ON TABLE public.invoices IS 'Stores billing invoices for workspaces.';
+COMMENT ON TABLE public.conversations IS 'A single chat session with a website visitor.';
 
--- Transactions table for financials
-CREATE TABLE IF NOT EXISTS public.transactions (
-    id SERIAL PRIMARY KEY,
-    workspace_id UUID REFERENCES public.workspaces(id) ON DELETE CASCADE,
-    invoice_id INT REFERENCES public.invoices(id),
-    amount INT NOT NULL,
-    type TEXT NOT NULL, -- 'payment', 'refund'
-    gateway TEXT, -- 'Stripe', 'Paystack'
-    transaction_date TIMESTAMPTZ DEFAULT now()
-);
-COMMENT ON TABLE public.transactions IS 'Logs all financial transactions.';
-
--- Announcements table for super admin
-CREATE TABLE IF NOT EXISTS public.announcements (
-    id SERIAL PRIMARY KEY,
-    title TEXT NOT NULL,
-    content TEXT NOT NULL,
-    created_at TIMESTAMPTZ DEFAULT now()
-);
-COMMENT ON TABLE public.announcements IS 'Stores platform-wide announcements.';
-
--- Audit log for super admin actions
-CREATE TABLE IF NOT EXISTS public.audit_log (
+-- MESSAGES TABLE
+-- Stores individual chat messages.
+CREATE TABLE IF NOT EXISTS public.messages (
     id BIGSERIAL PRIMARY KEY,
-    user_id UUID REFERENCES public.profiles(id),
-    action TEXT NOT NULL,
-    details JSONB,
+    conversation_id UUID NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES public.workspaces(id) ON DELETE CASCADE,
+    sender_id UUID REFERENCES auth.users(id) ON DELETE SET NULL, -- agent's user_id
+    sender_type TEXT NOT NULL, -- 'agent', 'visitor', 'bot'
+    content TEXT,
+    image_url TEXT,
     created_at TIMESTAMPTZ DEFAULT now()
 );
-COMMENT ON TABLE public.audit_log IS 'Records significant actions performed by administrators.';
+COMMENT ON TABLE public.messages IS 'An individual message within a conversation.';
+
+-- OTHER DYNAMIC CONTENT TABLES
+CREATE TABLE IF NOT EXISTS public.blog_posts ( id BIGSERIAL PRIMARY KEY, slug TEXT UNIQUE, title TEXT, excerpt TEXT, content TEXT, author TEXT, published_at TIMESTAMPTZ, image_url TEXT );
+CREATE TABLE IF NOT EXISTS public.automations ( id BIGSERIAL PRIMARY KEY, workspace_id UUID REFERENCES public.workspaces(id), name TEXT, description TEXT, is_active BOOLEAN );
+CREATE TABLE IF NOT EXISTS public.kb_articles ( id BIGSERIAL PRIMARY KEY, workspace_id UUID REFERENCES public.workspaces(id), title TEXT, content TEXT, category TEXT, status TEXT, last_updated_at TIMESTAMPTZ );
+CREATE TABLE IF NOT EXISTS public.invoices ( id BIGSERIAL PRIMARY KEY, workspace_id UUID REFERENCES public.workspaces(id), amount INT, status TEXT, created_at TIMESTAMPTZ );
+CREATE TABLE IF NOT EXISTS public.transactions ( id BIGSERIAL PRIMARY KEY, invoice_id BIGINT REFERENCES public.invoices(id), amount INT, type TEXT, created_at TIMESTAMPTZ );
+CREATE TABLE IF NOT EXISTS public.announcements ( id BIGSERIAL PRIMARY KEY, title TEXT, content TEXT, created_at TIMESTAMPTZ );
+CREATE TABLE IF NOT EXISTS public.audit_log ( id BIGSERIAL PRIMARY KEY, user_id UUID REFERENCES auth.users(id), action TEXT, details JSONB, created_at TIMESTAMPTZ );
 
 
--- ----------------------------------------------------------------
--- 3. INSERT DUMMY DATA (for initial setup)
--- ----------------------------------------------------------------
--- You can run this section once to populate your app with data.
+-- =============================================
+-- SECTION 2: ROW LEVEL SECURITY (RLS)
+-- =============================================
 
-INSERT INTO public.plans (name, price_monthly, features)
-VALUES
-    ('Starter', 0, '{"1 Agent", "100 Chats/month", "Basic Widget Customization", "Email Support"}'),
-    ('Pro', 49, '{"Up to 5 Agents", "1,000 Chats/month", "Advanced Customization", "Chatbot Automations", "Priority Support"}'),
-    ('Business', 99, '{"Unlimited Agents", "Unlimited Chats", "Full API Access", "Integrations", "Dedicated Account Manager"}')
-ON CONFLICT (id) DO NOTHING;
-
-INSERT INTO public.blog_posts (slug, title, excerpt, author, published_at, image_url)
-VALUES
-    ('post-1', '5 Ways AI Chatbots Can Boost Your Sales', 'Discover how implementing an AI chatbot can not only improve customer service but also have a direct impact on your bottom line.', 'Jane Doe', '2024-08-05', 'https://picsum.photos/seed/sales-boost/800/600'),
-    ('post-2', 'The Future of Customer Support: Human + AI Collaboration', 'We explore how combining the efficiency of AI with the empathy of human agents creates the ultimate customer experience.', 'John Smith', '2024-07-22', 'https://picsum.photos/seed/future-support/800/600')
-ON CONFLICT (slug) DO NOTHING;
-
-
--- ----------------------------------------------------------------
--- 4. SETUP REALTIME & TRIGGERS
--- ----------------------------------------------------------------
-
--- Enable realtime for messages and conversations tables
-BEGIN;
-  DROP PUBLICATION IF EXISTS supabase_realtime;
-  CREATE PUBLICATION supabase_realtime FOR TABLE public.messages, public.conversations;
-COMMIT;
-
--- Trigger function to create a profile and workspace for a new user
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
+-- Helper function to get user's workspace
+CREATE OR REPLACE FUNCTION public.get_user_workspace_id(p_user_id UUID)
+RETURNS UUID AS $$
 DECLARE
-  new_workspace_id UUID;
+    workspace_uuid UUID;
 BEGIN
-  -- Create a profile
-  INSERT INTO public.profiles (id, full_name, avatar_url, country)
-  VALUES (
-    new.id,
-    new.raw_user_meta_data->>'full_name',
-    new.raw_user_meta_data->>'avatar_url',
-    new.raw_user_meta_data->>'country'
-  );
-  
-  -- Create a workspace for the new user
-  INSERT INTO public.workspaces (owner_id, company_name, industry, company_size, user_role)
-  VALUES (
-    new.id,
-    new.raw_user_meta_data->>'company_name',
-    new.raw_user_meta_data->>'industry',
-    new.raw_user_meta_data->>'company_size',
-    new.raw_user_meta_data->>'user_role'
-  ) RETURNING id INTO new_workspace_id;
-
-  -- Add the owner to the workspace_users table as an 'admin'
-  INSERT INTO public.workspace_users (workspace_id, user_id, role)
-  VALUES (new_workspace_id, new.id, 'admin');
-
-  RETURN new;
+    SELECT workspace_id INTO workspace_uuid FROM public.workspace_users WHERE user_id = p_user_id LIMIT 1;
+    RETURN workspace_uuid;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Drop existing trigger if it exists, then create it
+
+-- PROFILES RLS
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own profile." ON public.profiles;
+CREATE POLICY "Users can view their own profile." ON public.profiles FOR SELECT USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
+CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
+DROP POLICY IF EXISTS "Users can view profiles of their teammates." ON public.profiles;
+CREATE POLICY "Users can view profiles of their teammates." ON public.profiles FOR SELECT USING (
+    id IN (SELECT user_id FROM public.workspace_users WHERE workspace_id = public.get_user_workspace_id(auth.uid()))
+);
+
+
+-- WORKSPACES RLS
+ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view their own workspace." ON public.workspaces;
+CREATE POLICY "Users can view their own workspace." ON public.workspaces FOR SELECT USING (id = public.get_user_workspace_id(auth.uid()));
+DROP POLICY IF EXISTS "Public anonymous access to find widget config." ON public.workspaces;
+CREATE POLICY "Public anonymous access to find widget config." ON public.workspaces FOR SELECT TO anon USING (true);
+
+-- CONVERSATIONS RLS
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage conversations in their workspace." ON public.conversations;
+CREATE POLICY "Users can manage conversations in their workspace." ON public.conversations FOR ALL USING (workspace_id = public.get_user_workspace_id(auth.uid()));
+
+-- MESSAGES RLS
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage messages in their workspace." ON public.messages;
+CREATE POLICY "Users can manage messages in their workspace." ON public.messages FOR ALL USING (workspace_id = public.get_user_workspace_id(auth.uid()));
+
+-- PLANS RLS
+ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Plans are publicly readable" ON public.plans;
+CREATE POLICY "Plans are publicly readable" ON public.plans FOR SELECT USING (true);
+
+-- BLOG POSTS RLS
+ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Blog posts are publicly readable" ON public.blog_posts;
+CREATE POLICY "Blog posts are publicly readable" ON public.blog_posts FOR SELECT USING (true);
+
+-- Other tables that need basic RLS
+ALTER TABLE public.automations ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage automations in their workspace." ON public.automations;
+CREATE POLICY "Users can manage automations in their workspace." ON public.automations FOR ALL USING (workspace_id = public.get_user_workspace_id(auth.uid()));
+
+ALTER TABLE public.kb_articles ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can manage KB articles in their workspace." ON public.kb_articles;
+CREATE POLICY "Users can manage KB articles in their workspace." ON public.kb_articles FOR ALL USING (workspace_id = public.get_user_workspace_id(auth.uid()));
+
+ALTER TABLE public.workspace_users ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Users can view members of their own workspace" ON public.workspace_users;
+CREATE POLICY "Users can view members of their own workspace" ON public.workspace_users FOR SELECT USING (workspace_id = public.get_user_workspace_id(auth.uid()));
+
+-- =============================================
+-- SECTION 3: DATABASE TRIGGERS & FUNCTIONS
+-- =============================================
+
+-- Function to create a profile and workspace for a new user
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+  _workspace_id UUID;
+  _widget_id TEXT;
+BEGIN
+  -- Create a new workspace for the user
+  _widget_id := substr(md5(random()::text), 0, 11);
+  INSERT INTO public.workspaces (owner_id, company_name, industry, company_size, user_role, widget_id, plan_id)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data->>'company_name',
+    NEW.raw_user_meta_data->>'industry',
+    NEW.raw_user_meta_data->>'company_size',
+    NEW.raw_user_meta_data->>'user_role',
+    _widget_id,
+    (SELECT id FROM public.plans WHERE price_monthly = 0 LIMIT 1)
+  ) RETURNING id INTO _workspace_id;
+
+  -- Create the user's profile
+  INSERT INTO public.profiles (id, full_name, email, country)
+  VALUES (
+    NEW.id,
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.email,
+    NEW.raw_user_meta_data->>'country'
+  );
+
+  -- Add user to the workspace members
+  INSERT INTO public.workspace_users (workspace_id, user_id, role)
+  VALUES (
+    _workspace_id,
+    NEW.id,
+    'owner'
+  );
+
+  RETURN NEW;
+END;
+$$;
+
+-- Trigger to call the function on new user signup
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
 
--- ----------------------------------------------------------------
--- 5. DEMO SETUP SCRIPT
--- ----------------------------------------------------------------
--- This makes the public widget on your homepage work with a known ID.
--- Run this AFTER you have created your 'user@example.com' user.
+-- Enable real-time for messages and conversations tables
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'messages') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.messages;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'conversations') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.conversations;
+  END IF;
+END $$;
 
-UPDATE public.workspaces
-SET widget_id = 'demo-widget-id'
-WHERE owner_id = (SELECT id FROM auth.users WHERE email = 'user@example.com');
 
+-- =============================================
+-- SECTION 4: STORAGE POLICIES
+-- =============================================
+-- Instructions for setting up Storage are in comments as they are done in the UI,
+-- but the policies can be scripted.
 
--- ----------------------------------------------------------------
--- 6. ROW LEVEL SECURITY (RLS) POLICIES
--- ----------------------------------------------------------------
+-- BUCKET: images
+-- 1. Create a bucket named "images" in the Supabase dashboard.
+-- 2. Make the bucket PUBLIC.
+-- 3. Run the following policies in the SQL editor.
 
--- Profiles
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone." ON public.profiles;
-CREATE POLICY "Public profiles are viewable by everyone." ON public.profiles FOR SELECT USING (true);
-DROP POLICY IF EXISTS "Users can insert their own profile." ON public.profiles;
-CREATE POLICY "Users can insert their own profile." ON public.profiles FOR INSERT WITH CHECK (auth.uid() = id);
-DROP POLICY IF EXISTS "Users can update their own profile." ON public.profiles;
-CREATE POLICY "Users can update their own profile." ON public.profiles FOR UPDATE USING (auth.uid() = id);
-
--- Workspaces
-ALTER TABLE public.workspaces ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Workspaces are viewable by users who belong to them." ON public.workspaces;
-CREATE POLICY "Workspaces are viewable by users who belong to them." ON public.workspaces FOR SELECT USING (
-  id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid())
-);
-DROP POLICY IF EXISTS "Public can read workspaces by widget_id" ON public.workspaces;
-CREATE POLICY "Public can read workspaces by widget_id" ON public.workspaces FOR SELECT TO anon USING (true);
-
--- Workspace Users
-ALTER TABLE public.workspace_users ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view members of their own workspace." ON public.workspace_users;
-CREATE POLICY "Users can view members of their own workspace." ON public.workspace_users FOR SELECT USING (
-  workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid())
-);
--- Add policy for admins to insert new users
--- ...
-
--- Conversations
-ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view conversations in their workspace." ON public.conversations;
-CREATE POLICY "Users can view conversations in their workspace." ON public.conversations FOR SELECT USING (
-  workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid())
-);
-DROP POLICY IF EXISTS "Anonymous users can create conversations." ON public.conversations;
-CREATE POLICY "Anonymous users can create conversations." ON public.conversations FOR INSERT TO anon WITH CHECK (true);
-
--- Messages
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Users can view messages in their workspace." ON public.messages;
-CREATE POLICY "Users can view messages in their workspace." ON public.messages FOR SELECT USING (
-  workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid())
-);
-DROP POLICY IF EXISTS "Users can insert messages in their workspace." ON public.messages;
-CREATE POLICY "Users can insert messages in their workspace." ON public.messages FOR INSERT WITH CHECK (
-  workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid())
-);
-DROP POLICY IF EXISTS "Anonymous users can create messages." ON public.messages;
-CREATE POLICY "Anonymous users can create messages." ON public.messages FOR INSERT TO anon WITH CHECK (true);
-
--- Public tables (no RLS needed, or public read access)
-ALTER TABLE public.plans ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Plans are public." ON public.plans;
-CREATE POLICY "Plans are public." ON public.plans FOR SELECT USING (true);
-ALTER TABLE public.blog_posts ENABLE ROW LEVEL SECURITY;
-DROP POLICY IF EXISTS "Blog posts are public." ON public.blog_posts;
-CREATE POLICY "Blog posts are public." ON public.blog_posts FOR SELECT USING (true);
-
--- Enable RLS for all new tables and grant access to authenticated users
-ALTER TABLE public.automations ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage automations in their workspace." ON public.automations FOR ALL USING (workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid()));
-ALTER TABLE public.kb_articles ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can manage KB articles in their workspace." ON public.kb_articles FOR ALL USING (workspace_id IN (SELECT workspace_id FROM public.workspace_users WHERE user_id = auth.uid()));
--- For super admin tables, we'll rely on user roles (checked via RPC)
-ALTER TABLE public.invoices DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.transactions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.announcements DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.audit_log DISABLE ROW LEVEL SECURITY;
-
--- ----------------------------------------------------------------
--- 7. STORAGE POLICIES
--- ----------------------------------------------------------------
--- Run this AFTER creating the 'images' bucket in the Supabase UI.
-
--- Make bucket public
--- (This should be done in the Supabase UI for simplicity)
-
--- Policy: Allow public read access to all images
 DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
-CREATE POLICY "Public Read Access" ON storage.objects FOR SELECT USING (bucket_id = 'images');
+CREATE POLICY "Public Read Access" ON storage.objects FOR SELECT USING ( bucket_id = 'images' );
 
--- Policy: Allow authenticated users to upload images
-DROP POLICY IF EXISTS "Authenticated User Uploads" ON storage.objects;
-CREATE POLICY "Authenticated User Uploads" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'images');
+DROP POLICY IF EXISTS "Authenticated Upload Access" ON storage.objects;
+CREATE POLICY "Authenticated Upload Access" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'images' AND auth.role() = 'authenticated' );
 
--- ----------------------------------------------------------------
--- 8. DATABASE FUNCTIONS (RPC) FOR ANALYTICS
--- ----------------------------------------------------------------
 
--- Function for USER dashboard reports
-CREATE OR REPLACE FUNCTION get_workspace_chat_stats(p_workspace_id UUID)
-RETURNS JSON AS $$
+-- =============================================
+-- SECTION 5: RPC FUNCTIONS FOR ANALYTICS
+-- =============================================
+
+-- RPC to get user session data including feature flags
+CREATE OR REPLACE FUNCTION public.get_user_session_data()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
 DECLARE
-    total_chats INT;
-    avg_response_time INTERVAL;
+    _user_id UUID := auth.uid();
+    _workspace_id UUID;
+    _profile RECORD;
+    _features TEXT[];
+    _result JSON;
 BEGIN
-    SELECT COUNT(*) INTO total_chats FROM conversations WHERE workspace_id = p_workspace_id;
-    -- Dummy avg response time for now
-    avg_response_time := '5 minutes'::interval;
-    
-    RETURN json_build_object(
-        'total_chats', total_chats,
-        'avg_response_time', avg_response_time,
-        'proactive_chats', 0, -- Placeholder
-        'chat_ratings', 0, -- Placeholder
-        'missed_chats', 0 -- Placeholder
+    SELECT w.id INTO _workspace_id
+    FROM public.workspaces w
+    JOIN public.workspace_users wu ON w.id = wu.workspace_id
+    WHERE wu.user_id = _user_id LIMIT 1;
+
+    SELECT id, full_name, avatar_url INTO _profile
+    FROM public.profiles
+    WHERE id = _user_id;
+
+    SELECT array_agg(f.key) INTO _features
+    FROM public.plan_features pf
+    JOIN public.features f ON pf.feature_id = f.id
+    JOIN public.workspaces w ON pf.plan_id = w.plan_id
+    WHERE w.id = _workspace_id;
+
+    _result := json_build_object(
+        'profile', row_to_json(_profile),
+        'workspaceId', _workspace_id,
+        'features', COALESCE(_features, ARRAY[]::TEXT[])
     );
+
+    RETURN _result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_user_session_data() TO authenticated;
+
+
+-- RPC for Super Admin dashboard stats
+CREATE OR REPLACE FUNCTION public.get_platform_stats()
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    _result JSON;
+BEGIN
+    -- NOTE: This is a placeholder for a real Super Admin.
+    -- A real implementation would check if the caller has a 'superadmin' role.
+    SELECT json_build_object(
+        'total_users', (SELECT count(*) FROM auth.users),
+        'total_workspaces', (SELECT count(*) FROM public.workspaces),
+        'mrr', (SELECT COALESCE(SUM(p.price_monthly), 0) FROM public.workspaces w JOIN public.plans p ON w.plan_id = p.id),
+        'active_subscriptions', (SELECT count(*) FROM public.workspaces w JOIN public.plans p ON w.plan_id = p.id WHERE p.price_monthly > 0)
+    ) INTO _result;
+    RETURN _result;
+END;
+$$;
+
+
+-- RPC for User dashboard stats
+CREATE OR REPLACE FUNCTION public.get_workspace_chat_stats(p_workspace_id UUID, p_period TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER SET search_path = public
+AS $$
+DECLARE
+    _result JSON;
+    _start_date TIMESTAMPTZ;
+BEGIN
+    IF p_period = 'week' THEN
+        _start_date := date_trunc('week', now());
+    ELSIF p_period = 'month' THEN
+        _start_date := date_trunc('month', now());
+    ELSE -- Default to year
+        _start_date := date_trunc('year', now());
+    END IF;
+
+    SELECT json_build_object(
+        'total_chats', (SELECT COUNT(*) FROM public.conversations WHERE workspace_id = p_workspace_id AND created_at >= _start_date),
+        'missed_chats', 0, -- Placeholder
+        'avg_response_time', '1m 32s' -- Placeholder
+    ) INTO _result;
+
+    RETURN _result;
+END;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_workspace_chat_stats(UUID, TEXT) TO authenticated;
+
+
+-- RPC to get visitors for a workspace
+CREATE OR REPLACE FUNCTION public.get_visitors_by_workspace(p_workspace_id UUID)
+RETURNS TABLE (visitor_id TEXT, visitor_email TEXT, last_seen TIMESTAMPTZ) AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        c.visitor_id,
+        MAX(c.visitor_email) as visitor_email,
+        MAX(c.created_at) as last_seen
+    FROM public.conversations c
+    WHERE c.workspace_id = p_workspace_id
+    GROUP BY c.visitor_id
+    ORDER BY last_seen DESC;
 END;
 $$ LANGUAGE plpgsql;
+GRANT EXECUTE ON FUNCTION public.get_visitors_by_workspace(UUID) TO authenticated;
 
--- Function for SUPER ADMIN dashboard stats
-CREATE OR REPLACE FUNCTION get_platform_stats()
-RETURNS JSON AS $$
+-- RPC for public widget config
+CREATE OR REPLACE FUNCTION public.get_widget_config(p_widget_id TEXT)
+RETURNS JSON
+LANGUAGE plpgsql
+AS $$
 DECLARE
-    total_users INT;
-    total_workspaces INT;
-    mrr INT;
+    _workspace_id UUID;
+    _features TEXT[];
+    _result JSON;
 BEGIN
-    SELECT COUNT(*) INTO total_users FROM auth.users;
-    SELECT COUNT(*) INTO total_workspaces FROM public.workspaces;
-    mrr := 12345; -- Placeholder MRR
+    SELECT id INTO _workspace_id
+    FROM public.workspaces
+    WHERE widget_id = p_widget_id;
     
-    RETURN json_build_object(
-        'total_users', total_users,
-        'total_workspaces', total_workspaces,
-        'mrr', mrr,
-        'active_subscriptions', 0 -- Placeholder
+    IF _workspace_id IS NULL THEN
+      RETURN NULL;
+    END IF;
+
+    SELECT array_agg(f.key) INTO _features
+    FROM public.plan_features pf
+    JOIN public.features f ON pf.feature_id = f.id
+    JOIN public.workspaces w ON pf.plan_id = w.plan_id
+    WHERE w.id = _workspace_id;
+
+    _result := json_build_object(
+        'workspaceId', _workspace_id,
+        'features', COALESCE(_features, ARRAY[]::TEXT[])
     );
+
+    RETURN _result;
 END;
-$$ LANGUAGE plpgsql;
+$$;
+GRANT EXECUTE ON FUNCTION public.get_widget_config(TEXT) TO anon;
 
--- ----------------------------------------------------------------
--- 9. GRANT PERMISSIONS
--- ----------------------------------------------------------------
-GRANT SELECT ON public.workspaces TO anon;
-GRANT ALL ON TABLE public.profiles TO authenticated;
-GRANT ALL ON TABLE public.workspaces TO authenticated;
--- Grant other permissions as needed
+-- =============================================
+-- SECTION 6: SEED DATA (INITIAL SETUP)
+-- =============================================
+-- This part seeds the database with initial plans and features.
+-- It's safe to run multiple times.
 
--- Grant usage on schema to roles
+DO $$
+DECLARE
+    free_plan_id UUID;
+    pro_plan_id UUID;
+    biz_plan_id UUID;
+    reports_feature_id UUID;
+    automations_feature_id UUID;
+    movable_widget_feature_id UUID;
+BEGIN
+    -- Seed Plans
+    INSERT INTO public.plans (name, price_monthly, features) VALUES
+    ('Free', 0, ARRAY['1 Agent', 'Live Chat', '100 Contacts']),
+    ('Pro', 25, ARRAY['Up to 5 Agents', 'Proactive Chat', 'Reporting']),
+    ('Business', 79, ARRAY['Unlimited Agents', 'Automations', 'API Access'])
+    ON CONFLICT (name) DO NOTHING;
+
+    -- Seed Features
+    INSERT INTO public.features (key, name, description) VALUES
+    ('has_reports', 'Reporting', 'Access to the analytics and reports dashboard.'),
+    ('has_automations', 'Automations', 'Create rules for proactive chat invitations.'),
+    ('has_movable_widget', 'Movable Widget', 'Allows visitors to drag the chat widget to the left or right side of the screen.')
+    ON CONFLICT (key) DO NOTHING;
+
+    -- Get IDs
+    SELECT id INTO free_plan_id FROM public.plans WHERE name = 'Free';
+    SELECT id INTO pro_plan_id FROM public.plans WHERE name = 'Pro';
+    SELECT id INTO biz_plan_id FROM public.plans WHERE name = 'Business';
+    SELECT id INTO reports_feature_id FROM public.features WHERE key = 'has_reports';
+    SELECT id INTO automations_feature_id FROM public.features WHERE key = 'has_automations';
+    SELECT id INTO movable_widget_feature_id FROM public.features WHERE key = 'has_movable_widget';
+
+    -- Link Features to Plans
+    -- Pro Plan
+    IF pro_plan_id IS NOT NULL AND reports_feature_id IS NOT NULL THEN
+        INSERT INTO public.plan_features (plan_id, feature_id) VALUES (pro_plan_id, reports_feature_id) ON CONFLICT DO NOTHING;
+    END IF;
+     IF pro_plan_id IS NOT NULL AND movable_widget_feature_id IS NOT NULL THEN
+        INSERT INTO public.plan_features (plan_id, feature_id) VALUES (pro_plan_id, movable_widget_feature_id) ON CONFLICT DO NOTHING;
+    END IF;
+    -- Business Plan
+    IF biz_plan_id IS NOT NULL AND reports_feature_id IS NOT NULL THEN
+        INSERT INTO public.plan_features (plan_id, feature_id) VALUES (biz_plan_id, reports_feature_id) ON CONFLICT DO NOTHING;
+    END IF;
+    IF biz_plan_id IS NOT NULL AND automations_feature_id IS NOT NULL THEN
+        INSERT INTO public.plan_features (plan_id, feature_id) VALUES (biz_plan_id, automations_feature_id) ON CONFLICT DO NOTHING;
+    END IF;
+     IF biz_plan_id IS NOT NULL AND movable_widget_feature_id IS NOT NULL THEN
+        INSERT INTO public.plan_features (plan_id, feature_id) VALUES (biz_plan_id, movable_widget_feature_id) ON CONFLICT DO NOTHING;
+    END IF;
+END $$;
+
+
+-- =============================================
+-- SECTION 7: DEMO SETUP (OPTIONAL)
+-- =============================================
+-- This part is for setting up the public-facing demo widget.
+-- 
+-- IMPORTANT INSTRUCTIONS:
+-- 1. Use the TreshTalk application UI to register a new user with the email 'user@example.com'.
+-- 2. Go to your email and click the verification link sent by Supabase.
+-- 3. AFTER the user is created and verified, run the single command below in your SQL Editor.
+-- 
+-- UPDATE public.workspaces
+-- SET widget_id = 'demo-widget-id'
+-- WHERE owner_id = (SELECT id FROM auth.users WHERE email = 'user@example.com');
+
+
+-- =============================================
+-- SECTION 8: PERMISSIONS
+-- =============================================
+-- Grant usage on schema to anon and authenticated roles
 GRANT USAGE ON SCHEMA public TO anon, authenticated;
--- Grant select on all tables in schema to anon role
-GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
--- Grant all privileges on all tables in schema to authenticated role
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO authenticated;
 
--- Grant EXECUTE on functions to roles
-GRANT EXECUTE ON FUNCTION public.get_workspace_chat_stats(UUID) TO authenticated;
-GRANT EXECUTE ON FUNCTION public.get_platform_stats() TO authenticated; -- Should be restricted to superadmin role
+-- Grant select on all tables to anon and authenticated roles
+-- RLS policies will still control what they can see.
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon, authenticated;
 
--- Note: In a production environment, you would create a 'superadmin' role in Postgres
--- and grant execute permissions on superadmin functions only to that role.
--- For this demo, we check the user's email in the frontend as a simple guard.
-
--- End of script
+-- Grant other permissions for authenticated users
+GRANT INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public to authenticated;

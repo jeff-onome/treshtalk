@@ -121,6 +121,11 @@ const LoginPage: React.FC = () => {
           </form>
         </div>
       </div>
+      <div className="mt-6 text-center text-sm text-gray-600">
+        <Link to="/" className="font-medium text-primary hover:text-primary-hover">
+            &larr; Back to homepage
+        </Link>
+      </div>
     </div>
   );
 };
