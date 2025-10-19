@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient.tsx';
 import { useAuth } from '../contexts/AuthContext.tsx';
-// FIX: Imported ChatBubbleIcon to resolve 'Cannot find name' error.
 import { UserCircleIcon, ClockIcon, ArrowPathIcon, ChatBubbleIcon } from '../components/icons.tsx';
 
 interface Conversation {

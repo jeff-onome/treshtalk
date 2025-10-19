@@ -1,4 +1,3 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { MenuIcon, SunIcon, MoonIcon, BellIcon, UserCircleIcon, LogoutIcon } from './icons.tsx';
@@ -8,7 +7,6 @@ interface SuperAdminHeaderProps {
     onToggleSidebar: () => void;
 }
 
-// FIX: Implemented getTitle function to return a string based on the route.
 const getTitle = (pathname: string): string => {
     const route = pathname.split('/superadmin/')[1]?.split('/')[0];
     switch (route) {
@@ -26,16 +24,30 @@ const getTitle = (pathname: string): string => {
 
 const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ onToggleSidebar }) => {
     const [isProfileOpen, setIsProfileOpen] = useState(false);
-    const [theme, setTheme] = useState(localStorage.getItem('theme') || 'system');
+    const [isDark, setIsDark] = useState(() => {
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark');
+            return true;
+        }
+        document.documentElement.classList.remove('dark');
+        return false;
+    });
     const [loggingOut, setLoggingOut] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
     const location = useLocation();
     const title = getTitle(location.pathname);
 
-    useEffect(() => {
-        // ... (theme effect remains the same)
-    }, [theme]);
+    const toggleTheme = () => {
+        setIsDark(!isDark);
+        if (!isDark) {
+            localStorage.theme = 'dark';
+            document.documentElement.classList.add('dark');
+        } else {
+            localStorage.theme = 'light';
+            document.documentElement.classList.remove('dark');
+        }
+    };
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -45,8 +57,14 @@ const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ onToggleSidebar }) 
     };
 
     useEffect(() => {
-        // ... (handleClickOutside effect remains the same)
-    }, [profileRef]);
+        const handleClickOutside = (event: MouseEvent) => {
+            if (profileRef.current && !profileRef.current.contains(event.target as Node)) {
+                setIsProfileOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, []);
 
     return (
         <header className="flex-shrink-0 bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
@@ -59,8 +77,8 @@ const SuperAdminHeader: React.FC<SuperAdminHeaderProps> = ({ onToggleSidebar }) 
                 </div>
 
                 <div className="flex items-center space-x-4">
-                    <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
-                        {theme === 'dark' ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
+                    <button onClick={toggleTheme} className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
+                        {isDark ? <SunIcon className="h-6 w-6" /> : <MoonIcon className="h-6 w-6" />}
                     </button>
                     <button className="p-2 rounded-full text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700">
                         <BellIcon className="h-6 w-6" />
